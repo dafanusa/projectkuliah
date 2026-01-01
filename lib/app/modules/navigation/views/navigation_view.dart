@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../../home/views/home_view.dart';
-import '../../materi/views/materi_view.dart';
-import '../../tugas/views/tugas_view.dart';
-import '../../hasil/views/hasil_view.dart';
-import '../../nilai/views/nilai_view.dart';
+import 'package:mvbtummaplikasi/app/modules/home/views/home_view.dart';
+import 'package:mvbtummaplikasi/app/modules/materi/views/materi_view.dart';
+import 'package:mvbtummaplikasi/app/modules/tugas/views/tugas_view.dart';
+import 'package:mvbtummaplikasi/app/modules/hasil/views/hasil_view.dart';
+import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
+import 'package:mvbtummaplikasi/app/modules/profile/views/profile_view.dart';
 import '../controllers/navigation_controller.dart';
 
 class NavigationView extends GetView<NavigationController> {
@@ -19,6 +20,7 @@ class NavigationView extends GetView<NavigationController> {
       _NavItem('Tugas', Icons.assignment_rounded),
       _NavItem('Hasil', Icons.fact_check_rounded),
       _NavItem('Nilai', Icons.score_rounded),
+      _NavItem('Profil', Icons.person_rounded),
     ];
 
     final pages = [
@@ -27,6 +29,7 @@ class NavigationView extends GetView<NavigationController> {
       const TugasView(),
       const HasilView(),
       const NilaiView(),
+      const ProfileView(),
     ];
 
     return Obx(() {

@@ -1,21 +1,37 @@
 import 'package:get/get.dart';
 
-import '../modules/navigation/bindings/navigation_binding.dart';
-import '../modules/navigation/views/navigation_view.dart';
-import '../modules/home/bindings/home_binding.dart';
-import '../modules/home/views/home_view.dart';
-import '../modules/materi/bindings/materi_binding.dart';
-import '../modules/materi/views/materi_view.dart';
-import '../modules/tugas/bindings/tugas_binding.dart';
-import '../modules/tugas/views/tugas_view.dart';
-import '../modules/hasil/bindings/hasil_binding.dart';
-import '../modules/hasil/views/hasil_view.dart';
-import '../modules/nilai/bindings/nilai_binding.dart';
-import '../modules/nilai/views/nilai_view.dart';
+import 'package:mvbtummaplikasi/app/modules/navigation/bindings/navigation_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/navigation/views/navigation_view.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/login/bindings/login_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/login/views/login_view.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/register/bindings/register_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/register/views/register_view.dart';
+import 'package:mvbtummaplikasi/app/modules/home/bindings/home_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/home/views/home_view.dart';
+import 'package:mvbtummaplikasi/app/modules/materi/bindings/materi_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/materi/views/materi_view.dart';
+import 'package:mvbtummaplikasi/app/modules/tugas/bindings/tugas_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/tugas/views/tugas_view.dart';
+import 'package:mvbtummaplikasi/app/modules/hasil/bindings/hasil_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/hasil/views/hasil_view.dart';
+import 'package:mvbtummaplikasi/app/modules/nilai/bindings/nilai_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
+import 'package:mvbtummaplikasi/app/modules/profile/bindings/profile_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/profile/views/profile_view.dart';
 import 'app_routes.dart';
 
 class AppPages {
   static final routes = [
+    GetPage(
+      name: Routes.login,
+      page: () => const LoginView(),
+      binding: LoginBinding(),
+    ),
+    GetPage(
+      name: Routes.register,
+      page: () => const RegisterView(),
+      binding: RegisterBinding(),
+    ),
     GetPage(
       name: Routes.main,
       page: () => const NavigationView(),
@@ -45,6 +61,11 @@ class AppPages {
       name: Routes.nilai,
       page: () => const NilaiView(),
       binding: NilaiBinding(),
+    ),
+    GetPage(
+      name: Routes.profile,
+      page: () => const ProfileView(),
+      binding: ProfileBinding(),
     ),
   ];
 }

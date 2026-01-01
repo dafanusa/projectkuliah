@@ -5,6 +5,8 @@ import '../../materi/controllers/materi_controller.dart';
 import '../../tugas/controllers/tugas_controller.dart';
 import '../../hasil/controllers/hasil_controller.dart';
 import '../../nilai/controllers/nilai_controller.dart';
+import '../../profile/controllers/profile_controller.dart';
+import '../../classes/controllers/classes_controller.dart';
 import '../controllers/navigation_controller.dart';
 
 class NavigationBinding extends Bindings {
@@ -16,5 +18,7 @@ class NavigationBinding extends Bindings {
     Get.lazyPut<TugasController>(() => TugasController());
     Get.lazyPut<HasilController>(() => HasilController());
     Get.lazyPut<NilaiController>(() => NilaiController());
+    Get.lazyPut<ProfileController>(() => ProfileController());
+    Get.lazyPut<ClassesController>(() => ClassesController());
   }
 }

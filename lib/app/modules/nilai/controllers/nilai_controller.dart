@@ -1,22 +1,72 @@
 import 'package:get/get.dart';
 
+import '../../../models/assignment_item.dart';
+import '../../../models/grade_item.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/data_service.dart';
+
 class NilaiController extends GetxController {
-  final nilai = <NilaiItem>[
-    NilaiItem(nama: 'Alya Putri', nilai: 88, kelas: 'RPL A'),
-    NilaiItem(nama: 'Bima Pratama', nilai: 92, kelas: 'RPL A'),
-    NilaiItem(nama: 'Chandra Wijaya', nilai: 79, kelas: 'RPL B'),
-    NilaiItem(nama: 'Dina Larasati', nilai: 85, kelas: 'RPL B'),
-  ].obs;
-}
+  final DataService _dataService = Get.find<DataService>();
+  final AuthService _authService = Get.find<AuthService>();
 
-class NilaiItem {
-  final String nama;
-  final int nilai;
-  final String kelas;
+  final nilai = <GradeItem>[].obs;
+  final assignments = <AssignmentItem>[].obs;
+  final isLoading = false.obs;
 
-  NilaiItem({
-    required this.nama,
-    required this.nilai,
-    required this.kelas,
-  });
+  bool get isAdmin => _authService.role.value == 'admin';
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadAll();
+    ever(_authService.role, (_) => loadAll());
+  }
+
+  Future<void> loadAll() async {
+    try {
+      isLoading.value = true;
+      nilai.value = await _dataService.fetchGrades();
+      assignments.value = await _dataService.fetchAssignments(
+        includeExpired: true,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> addGrade({
+    required String studentName,
+    required int score,
+    required String? classId,
+    required String? assignmentId,
+  }) async {
+    await _dataService.insertGrade({
+      'student_name': studentName,
+      'score': score,
+      'class_id': classId,
+      'assignment_id': assignmentId,
+    });
+    await loadAll();
+  }
+
+  Future<void> updateGrade({
+    required String id,
+    required String studentName,
+    required int score,
+    required String? classId,
+    required String? assignmentId,
+  }) async {
+    await _dataService.updateGrade(id, {
+      'student_name': studentName,
+      'score': score,
+      'class_id': classId,
+      'assignment_id': assignmentId,
+    });
+    await loadAll();
+  }
+
+  Future<void> deleteGrade(String id) async {
+    await _dataService.deleteGrade(id);
+    await loadAll();
+  }
 }

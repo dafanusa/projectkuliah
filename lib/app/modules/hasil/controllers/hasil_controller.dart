@@ -1,32 +1,76 @@
 import 'package:get/get.dart';
 
+import '../../../models/assignment_item.dart';
+import '../../../models/result_item.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/data_service.dart';
+
 class HasilController extends GetxController {
-  final hasil = <HasilItem>[
-    HasilItem(
-      title: 'Tugas 1 - Analisis Sistem',
-      terkumpul: 28,
-      belum: 4,
-      dinilai: 10,
-    ),
-    HasilItem(
-      title: 'Tugas 2 - Desain Antarmuka',
-      terkumpul: 30,
-      belum: 2,
-      dinilai: 6,
-    ),
-  ].obs;
-}
+  final DataService _dataService = Get.find<DataService>();
+  final AuthService _authService = Get.find<AuthService>();
 
-class HasilItem {
-  final String title;
-  final int terkumpul;
-  final int belum;
-  final int dinilai;
+  final hasil = <ResultItem>[].obs;
+  final assignments = <AssignmentItem>[].obs;
+  final isLoading = false.obs;
 
-  HasilItem({
-    required this.title,
-    required this.terkumpul,
-    required this.belum,
-    required this.dinilai,
-  });
+  bool get isAdmin => _authService.role.value == 'admin';
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadAll();
+    ever(_authService.role, (_) => loadAll());
+  }
+
+  Future<void> loadAll() async {
+    try {
+      isLoading.value = true;
+      hasil.value = await _dataService.fetchResults();
+      assignments.value = await _dataService.fetchAssignments(
+        includeExpired: true,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> addResult({
+    required String assignmentId,
+    required String? classId,
+    required int collected,
+    required int missing,
+    required int graded,
+  }) async {
+    await _dataService.insertResult({
+      'assignment_id': assignmentId,
+      'class_id': classId,
+      'collected': collected,
+      'missing': missing,
+      'graded': graded,
+    });
+    await loadAll();
+  }
+
+  Future<void> updateResult({
+    required String id,
+    required String assignmentId,
+    required String? classId,
+    required int collected,
+    required int missing,
+    required int graded,
+  }) async {
+    await _dataService.updateResult(id, {
+      'assignment_id': assignmentId,
+      'class_id': classId,
+      'collected': collected,
+      'missing': missing,
+      'graded': graded,
+    });
+    await loadAll();
+  }
+
+  Future<void> deleteResult(String id) async {
+    await _dataService.deleteResult(id);
+    await loadAll();
+  }
 }

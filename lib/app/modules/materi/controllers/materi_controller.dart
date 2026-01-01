@@ -1,38 +1,84 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:get/get.dart';
 
+import '../../../models/material_item.dart';
+import '../../../services/auth_service.dart';
+import '../../../services/data_service.dart';
+
 class MateriController extends GetxController {
-  final materi = <MateriItem>[
-    MateriItem(
-      title: 'Pengantar Rekayasa Perangkat Lunak',
-      pertemuan: 'Pertemuan 1',
-      deskripsi: 'Scope, lifecycle, dan workflow tim.',
-      tanggal: '12 Jan 2026',
-    ),
-    MateriItem(
-      title: 'Analisis Kebutuhan',
-      pertemuan: 'Pertemuan 2',
-      deskripsi: 'User story dan acceptance criteria.',
-      tanggal: '19 Jan 2026',
-    ),
-    MateriItem(
-      title: 'Desain UI/UX Mobile',
-      pertemuan: 'Pertemuan 3',
-      deskripsi: 'Wireframe, prototyping, dan heuristic.',
-      tanggal: '26 Jan 2026',
-    ),
-  ].obs;
-}
+  final DataService _dataService = Get.find<DataService>();
+  final AuthService _authService = Get.find<AuthService>();
 
-class MateriItem {
-  final String title;
-  final String pertemuan;
-  final String deskripsi;
-  final String tanggal;
+  final materi = <MaterialItem>[].obs;
+  final isLoading = false.obs;
 
-  MateriItem({
-    required this.title,
-    required this.pertemuan,
-    required this.deskripsi,
-    required this.tanggal,
-  });
+  bool get isAdmin => _authService.role.value == 'admin';
+
+  @override
+  void onInit() {
+    super.onInit();
+    loadMateri();
+    ever(_authService.role, (_) => loadMateri());
+  }
+
+  Future<void> loadMateri() async {
+    try {
+      isLoading.value = true;
+      materi.value = await _dataService.fetchMaterials();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<String?> uploadMateriFile(XFile file) async {
+    return _dataService.uploadFile(
+      file: file,
+      bucket: 'materials',
+      folder: 'materi',
+    );
+  }
+
+  Future<void> addMateri({
+    required String title,
+    required String description,
+    required String meeting,
+    required DateTime? date,
+    required String? classId,
+    required String? filePath,
+  }) async {
+    await _dataService.insertMaterial({
+      'title': title,
+      'description': description,
+      'meeting': meeting,
+      'date': date?.toIso8601String(),
+      'class_id': classId,
+      'file_path': filePath,
+    });
+    await loadMateri();
+  }
+
+  Future<void> updateMateri({
+    required String id,
+    required String title,
+    required String description,
+    required String meeting,
+    required DateTime? date,
+    required String? classId,
+    required String? filePath,
+  }) async {
+    await _dataService.updateMaterial(id, {
+      'title': title,
+      'description': description,
+      'meeting': meeting,
+      'date': date?.toIso8601String(),
+      'class_id': classId,
+      'file_path': filePath,
+    });
+    await loadMateri();
+  }
+
+  Future<void> deleteMateri(String id) async {
+    await _dataService.deleteMaterial(id);
+    await loadMateri();
+  }
 }

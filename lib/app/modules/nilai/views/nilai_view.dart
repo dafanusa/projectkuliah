@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../models/grade_item.dart';
+import '../../../services/auth_service.dart';
+import '../../../theme/app_colors.dart';
+import '../../classes/controllers/classes_controller.dart';
 import '../controllers/nilai_controller.dart';
 
 class NilaiView extends GetView<NilaiController> {
@@ -8,16 +12,38 @@ class NilaiView extends GetView<NilaiController> {
 
   @override
   Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
     return Obx(() {
       final items = controller.nilai.toList();
       final average = items.isEmpty
           ? 0
-          : (items.fold<int>(0, (sum, item) => sum + item.nilai) /
+          : (items.fold<int>(0, (sum, item) => sum + item.score) /
                   items.length)
               .round();
+
       return ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          Obx(() {
+            if (authService.role.value != 'admin') {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: _AdminPanel(
+                title: 'Kelola Nilai',
+                subtitle: 'Tambah atau koreksi nilai mahasiswa.',
+                actionLabel: 'Tambah Nilai',
+                onTap: () => _openNilaiForm(
+                  context,
+                  controller,
+                  classesController,
+                ),
+              ),
+            );
+          }),
           _PageHeader(
             title: 'Nilai Mahasiswa',
             subtitle: 'Pantau performa kelas secara cepat.',
@@ -27,32 +53,64 @@ class NilaiView extends GetView<NilaiController> {
             ],
           ),
           const SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: DataTable(
-                headingRowColor: MaterialStateProperty.all(
-                  const Color(0xFFE8ECF5),
+          if (items.isEmpty)
+            const _EmptyState(
+              title: 'Belum ada nilai',
+              subtitle: 'Admin bisa menambahkan nilai dari panel atas.',
+            )
+          else
+            Card(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: MaterialStateProperty.all(
+                    const Color(0xFFE8ECF5),
+                  ),
+                  columns: const [
+                    DataColumn(label: Text('Mahasiswa')),
+                    DataColumn(label: Text('Kelas')),
+                    DataColumn(label: Text('Tugas')),
+                    DataColumn(label: Text('Nilai')),
+                    DataColumn(label: Text('Aksi')),
+                  ],
+                  rows: items
+                      .map(
+                        (item) => DataRow(
+                          cells: [
+                            DataCell(Text(item.studentName)),
+                            DataCell(Text(item.className ?? '-')),
+                            DataCell(Text(item.assignmentTitle ?? '-')),
+                            DataCell(Text(item.score.toString())),
+                            DataCell(
+                              authService.role.value == 'admin'
+                                  ? Row(
+                                      children: [
+                                        IconButton(
+                                          onPressed: () => _openNilaiForm(
+                                            context,
+                                            controller,
+                                            classesController,
+                                            item: item,
+                                          ),
+                                          icon: const Icon(Icons.edit_rounded),
+                                        ),
+                                        IconButton(
+                                          onPressed: () =>
+                                              controller.deleteGrade(item.id),
+                                          icon: const Icon(Icons.delete_rounded,
+                                              color: Colors.red),
+                                        ),
+                                      ],
+                                    )
+                                  : const SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+                      )
+                      .toList(),
                 ),
-                columns: const [
-                  DataColumn(label: Text('Mahasiswa')),
-                  DataColumn(label: Text('Kelas')),
-                  DataColumn(label: Text('Nilai')),
-                ],
-                rows: items
-                    .map(
-                      (item) => DataRow(
-                        cells: [
-                          DataCell(Text(item.nama)),
-                          DataCell(Text(item.kelas)),
-                          DataCell(Text(item.nilai.toString())),
-                        ],
-                      ),
-                    )
-                    .toList(),
               ),
             ),
-          ),
         ],
       );
     });
@@ -76,7 +134,7 @@ class _PageHeader extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF0B1E3B), Color(0xFF2C3E66)],
+          colors: [AppColors.navy, AppColors.navyAccent],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -130,4 +188,194 @@ class _HeaderStat extends StatelessWidget {
       ),
     );
   }
+}
+
+class _AdminPanel extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String actionLabel;
+  final VoidCallback onTap;
+
+  const _AdminPanel({
+    required this.title,
+    required this.subtitle,
+    required this.actionLabel,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE8ECF5),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.score_rounded, color: AppColors.navy),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(subtitle),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: onTap,
+              child: Text(actionLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  final String title;
+  final String subtitle;
+
+  const _EmptyState({required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            const Icon(Icons.inbox_rounded, size: 40, color: AppColors.navy),
+            const SizedBox(height: 12),
+            Text(
+              title,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            Text(subtitle, textAlign: TextAlign.center),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Future<void> _openNilaiForm(
+  BuildContext context,
+  NilaiController controller,
+  ClassesController classesController, {
+  GradeItem? item,
+}) async {
+  final nameController = TextEditingController(text: item?.studentName ?? '');
+  final scoreController =
+      TextEditingController(text: item?.score.toString() ?? '');
+  String? selectedClassId = item?.classId;
+  String? selectedAssignmentId = item?.assignmentId;
+
+  await Get.dialog(
+    StatefulBuilder(
+      builder: (context, setState) {
+        final classes = classesController.classes.toList();
+        final assignments = controller.assignments.toList();
+        return AlertDialog(
+          title: Text(item == null ? 'Tambah Nilai' : 'Ubah Nilai'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Nama Mahasiswa'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: scoreController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Nilai'),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedClassId,
+                  decoration: const InputDecoration(labelText: 'Kelas'),
+                  items: classes
+                      .map(
+                        (c) => DropdownMenuItem(
+                          value: c.id,
+                          child: Text(c.name),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => selectedClassId = value),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String?>(
+                  value: selectedAssignmentId,
+                  decoration: const InputDecoration(labelText: 'Tugas (opsional)'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Tanpa tugas'),
+                    ),
+                    ...assignments.map(
+                      (assignment) => DropdownMenuItem<String?>(
+                        value: assignment.id,
+                        child: Text(assignment.title),
+                      ),
+                    ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => selectedAssignmentId = value),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Get.back(),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final score = int.tryParse(scoreController.text) ?? 0;
+                if (name.isEmpty) {
+                  Get.snackbar('Gagal', 'Nama mahasiswa wajib diisi.');
+                  return;
+                }
+                if (item == null) {
+                  await controller.addGrade(
+                    studentName: name,
+                    score: score,
+                    classId: selectedClassId,
+                    assignmentId: selectedAssignmentId,
+                  );
+                } else {
+                  await controller.updateGrade(
+                    id: item.id,
+                    studentName: name,
+                    score: score,
+                    classId: selectedClassId,
+                    assignmentId: selectedAssignmentId,
+                  );
+                }
+                Get.back();
+              },
+              child: const Text('Simpan'),
+            ),
+          ],
+        );
+      },
+    ),
+  );
 }
