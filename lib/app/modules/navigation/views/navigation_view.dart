@@ -35,6 +35,8 @@ class NavigationView extends GetView<NavigationController> {
 
     return Obx(() {
       final index = controller.currentIndex.value;
+      final bottomInset = MediaQuery.of(context).padding.bottom;
+      const navHeight = 84.0;
       return Scaffold(
         extendBody: true,
         appBar: AppBar(
@@ -64,30 +66,34 @@ class NavigationView extends GetView<NavigationController> {
               end: Alignment.bottomCenter,
             ),
           ),
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 280),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final offset = Tween<Offset>(
-                begin: const Offset(0.03, 0),
-                end: Offset.zero,
-              ).animate(animation);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offset, child: child),
-              );
-            },
-            child: IndexedStack(
-              key: ValueKey(index),
-              index: index,
-              children: pages,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: navHeight + bottomInset + 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 280),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final offset = Tween<Offset>(
+                  begin: const Offset(0.03, 0),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: offset, child: child),
+                );
+              },
+              child: IndexedStack(
+                key: ValueKey(index),
+                index: index,
+                children: pages,
+              ),
             ),
           ),
         ),
         bottomNavigationBar: SafeArea(
-          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          minimum: const EdgeInsets.fromLTRB(16, 0, 16, 20),
           child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
             decoration: BoxDecoration(
               color: AppColors.navy,
               borderRadius: BorderRadius.circular(28),
