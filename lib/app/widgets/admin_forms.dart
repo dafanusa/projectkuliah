@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 
 import '../models/assignment_item.dart';
+import '../models/assignment_submission.dart';
 import '../models/grade_item.dart';
 import '../models/material_item.dart';
 import '../models/lecturer_work_item.dart';
@@ -75,6 +76,7 @@ Future<void> showMateriForm(
                 else
                   DropdownButtonFormField<String>(
                     value: selectedClassId,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Kelas'),
                     items: classes
                         .map(
@@ -610,12 +612,15 @@ Future<void> showNilaiForm(
   String? fixedClassId,
   String? fixedClassName,
 }) async {
-  final nameController = TextEditingController(text: item?.studentName ?? '');
   final scoreController =
       TextEditingController(text: item?.score.toString() ?? '');
   final isClassFixed = fixedClassId != null || fixedClassName != null;
   String? selectedClassId = fixedClassId ?? item?.classId;
   String? selectedAssignmentId = item?.assignmentId;
+  String? selectedStudentName = item?.studentName;
+  var submissions = <AssignmentSubmission>[];
+  var isLoadingStudents = false;
+  var didInit = false;
 
   await Get.dialog(
     StatefulBuilder(
@@ -630,18 +635,50 @@ Future<void> showNilaiForm(
             }
           }
         }
-        final assignments = controller.assignments.toList();
+        final assignments = controller.assignments
+            .where((assignment) {
+              if (selectedClassId == null || selectedClassId!.isEmpty) {
+                return true;
+              }
+              return assignment.classId == selectedClassId;
+            })
+            .toList();
+        Future<void> loadStudents(String? assignmentId) async {
+          if (assignmentId == null || assignmentId.isEmpty) {
+            setState(() => submissions = []);
+            return;
+          }
+          setState(() => isLoadingStudents = true);
+          try {
+            AssignmentItem? assignment;
+            for (final item in assignments) {
+              if (item.id == assignmentId) {
+                assignment = item;
+                break;
+              }
+            }
+            submissions = await controller.loadSubmissionStudents(
+              assignmentId,
+              assignmentTitle: assignment?.title,
+              classId: assignment?.classId,
+            );
+            setState(() {});
+          } finally {
+            setState(() => isLoadingStudents = false);
+          }
+        }
+        if (!didInit) {
+          didInit = true;
+          if (selectedAssignmentId != null && selectedAssignmentId!.isNotEmpty) {
+            Future.microtask(() => loadStudents(selectedAssignmentId));
+          }
+        }
         return AlertDialog(
           title: Text(item == null ? 'Tambah Nilai' : 'Ubah Nilai'),
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(labelText: 'Nama Mahasiswa'),
-                ),
-                const SizedBox(height: 12),
                 TextField(
                   controller: scoreController,
                   keyboardType: TextInputType.number,
@@ -666,11 +703,19 @@ Future<void> showNilaiForm(
                           ),
                         )
                         .toList(),
-                    onChanged: (value) => setState(() => selectedClassId = value),
+                    onChanged: (value) {
+                      setState(() {
+                        selectedClassId = value;
+                        selectedAssignmentId = null;
+                        selectedStudentName = null;
+                        submissions = [];
+                      });
+                    },
                   ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String?>(
                   value: selectedAssignmentId,
+                  isExpanded: true,
                   decoration:
                       const InputDecoration(labelText: 'Tugas (opsional)'),
                   items: [
@@ -685,9 +730,85 @@ Future<void> showNilaiForm(
                       ),
                     ),
                   ],
-                  onChanged: (value) =>
-                      setState(() => selectedAssignmentId = value),
+                  onChanged: (value) async {
+                    setState(() {
+                      selectedAssignmentId = value;
+                      selectedStudentName = null;
+                      submissions = [];
+                    });
+                    if (value != null) {
+                      AssignmentItem? assignment;
+                      for (final item in assignments) {
+                        if (item.id == value) {
+                          assignment = item;
+                          break;
+                        }
+                      }
+                      if (!isClassFixed && assignment != null) {
+                        setState(() => selectedClassId = assignment?.classId);
+                      }
+                    }
+                    await loadStudents(value);
+                  },
                 ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedStudentName,
+                  isExpanded: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Mahasiswa (sudah mengumpulkan)',
+                  ),
+                  items: [
+                    ...submissions.map(
+                      (submission) {
+                        final name = submission.studentName ?? 'Mahasiswa';
+                        final nim = submission.studentNim;
+                        final label =
+                            nim == null || nim.isEmpty ? name : '$name ($nim)';
+                        return DropdownMenuItem<String>(
+                          value: name,
+                          child: Text(label),
+                        );
+                      },
+                    ),
+                    if (selectedStudentName != null &&
+                        selectedStudentName!.isNotEmpty &&
+                        submissions
+                            .where((item) => item.studentName == selectedStudentName)
+                            .isEmpty)
+                      DropdownMenuItem<String>(
+                        value: selectedStudentName,
+                        child: Text(selectedStudentName!),
+                      ),
+                  ],
+                  onChanged: (value) =>
+                      setState(() => selectedStudentName = value),
+                ),
+                if (isLoadingStudents)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Memuat daftar mahasiswa...',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ),
+                if (!isLoadingStudents &&
+                    submissions.isEmpty &&
+                    selectedAssignmentId != null &&
+                    selectedAssignmentId!.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 6),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Belum ada mahasiswa yang mengumpulkan.',
+                        style: TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -698,12 +819,12 @@ Future<void> showNilaiForm(
             ),
             ElevatedButton(
               onPressed: () async {
-                final name = nameController.text.trim();
+                final name = selectedStudentName?.trim() ?? '';
                 final score = int.tryParse(scoreController.text) ?? 0;
                 if (name.isEmpty) {
                   Get.snackbar(
                     'Gagal',
-                    'Nama mahasiswa wajib diisi.',
+                    'Pilih mahasiswa yang sudah mengumpulkan.',
                     backgroundColor: AppColors.navy,
                     colorText: Colors.white,
                   );

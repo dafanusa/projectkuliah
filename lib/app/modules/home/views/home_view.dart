@@ -13,6 +13,7 @@ import '../../nilai/controllers/nilai_controller.dart';
 import '../../tugas/controllers/tugas_controller.dart';
 import '../controllers/home_controller.dart';
 import '../../../models/assignment_item.dart';
+import '../../../models/grade_item.dart';
 import '../../../models/material_item.dart';
 
 class HomeView extends GetView<HomeController> {
@@ -34,6 +35,19 @@ class HomeView extends GetView<HomeController> {
       final tugas = tugasController.tugas.toList();
       final submissions = hasilController.submissions.toList();
       final nilai = nilaiController.nilai.toList();
+      final userName = authService.name.value.trim();
+      final visibleNilai = isAdmin
+          ? nilai
+          : (userName.isEmpty
+              ? <GradeItem>[]
+              : nilai
+                  .where(
+                    (item) =>
+                        item.studentName.trim().isNotEmpty &&
+                        item.studentName.trim().toLowerCase() ==
+                            userName.toLowerCase(),
+                  )
+                  .toList());
       final now = DateTime.now();
 
       final aktifTugas =
@@ -45,10 +59,10 @@ class HomeView extends GetView<HomeController> {
       final totalLate = submissions
           .where((item) => item.status == 'terlambat')
           .length;
-      final avgScore = nilai.isEmpty
+      final avgScore = visibleNilai.isEmpty
           ? 0
-          : (nilai.fold<int>(0, (sum, item) => sum + item.score) /
-                  nilai.length)
+          : (visibleNilai.fold<int>(0, (sum, item) => sum + item.score) /
+                  visibleNilai.length)
               .round();
 
       final recentTugas = List.of(tugas)
@@ -116,7 +130,7 @@ class HomeView extends GetView<HomeController> {
                 _StatItem(
                   label: 'Rata-rata',
                   value: avgScore.toString(),
-                  caption: '${nilai.length} nilai',
+                  caption: '${visibleNilai.length} nilai',
                   icon: Icons.score_rounded,
                   accent: AppColors.navy,
                   progress: avgScore / 100,

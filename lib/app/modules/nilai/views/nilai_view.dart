@@ -20,17 +20,30 @@ class NilaiView extends GetView<NilaiController> {
 
     return Obx(() {
       final items = controller.nilai.toList();
+      final isAdmin = authService.role.value == 'admin';
+      final userName = authService.name.value.trim();
+      final visibleItems = isAdmin
+          ? items
+          : items
+              .where(
+                (item) =>
+                    userName.isNotEmpty &&
+                    item.studentName.toLowerCase() ==
+                        userName.toLowerCase(),
+              )
+              .toList();
       final isLoading = controller.isLoading.value;
       final classes = classesController.classes.toList();
-      final average = items.isEmpty
+      final totalCount = isAdmin ? items.length : visibleItems.length;
+      final average = visibleItems.isEmpty
           ? 0
-          : (items.fold<int>(0, (sum, item) => sum + item.score) /
-                  items.length)
+          : (visibleItems.fold<int>(0, (sum, item) => sum + item.score) /
+                  visibleItems.length)
               .round();
       final hasUnassigned =
-          items.any((item) => item.classId == null || item.classId!.isEmpty);
+          visibleItems.any((item) => item.classId == null || item.classId!.isEmpty);
       final countByClassId = <String, int>{};
-      for (final item in items) {
+      for (final item in visibleItems) {
         final classId = item.classId ?? '';
         countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
       }
@@ -65,83 +78,91 @@ class NilaiView extends GetView<NilaiController> {
                   subtitle: 'Pantau performa kelas secara cepat.',
                   stats: [
                     _HeaderStat(label: 'Rata-rata', value: average.toString()),
-                    _HeaderStat(label: 'Jumlah', value: items.length.toString()),
+                    _HeaderStat(label: 'Jumlah', value: totalCount.toString()),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
-                child: isLoading && items.isEmpty && classes.isEmpty
-                    ? const SizedBox(
-                        height: 180,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : items.isEmpty && classes.isEmpty
-                        ? const _EmptyState(
-                            title: 'Belum ada nilai',
-                            subtitle: 'Admin bisa menambahkan nilai dari panel atas.',
-                          )
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isWide = constraints.maxWidth > 720;
-                              final itemWidth = isWide
-                                  ? (constraints.maxWidth - 12) / 2
-                                  : constraints.maxWidth;
-                              final tiles = <Widget>[];
-                              for (final entry in classes.asMap().entries) {
-                                final classItem = entry.value;
-                                final count =
-                                    countByClassId[classItem.id] ?? 0;
-                                tiles.add(
-                                  Reveal(
-                                    delayMs: 140 + entry.key * 70,
-                                    child: SizedBox(
-                                      width: itemWidth,
-                                      child: _ClassCard(
-                                        title: classItem.name,
-                                        subtitle: '$count nilai',
-                                        icon: Icons.score_rounded,
-                                        onTap: () => Get.to(
-                                          () => NilaiClassView(
-                                            classId: classItem.id,
-                                            className: classItem.name,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                child: () {
+                  final isEmpty = isAdmin
+                      ? items.isEmpty && classes.isEmpty
+                      : visibleItems.isEmpty;
+                  if (isLoading && isEmpty) {
+                    return const SizedBox(
+                      height: 180,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (isEmpty) {
+                    return const _EmptyState(
+                      title: 'Belum ada nilai',
+                      subtitle: 'Nilai akan tampil di sini.',
+                    );
+                  }
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 720;
+                      final itemWidth = isWide
+                          ? (constraints.maxWidth - 12) / 2
+                          : constraints.maxWidth;
+                      final tiles = <Widget>[];
+                      for (final entry in classes.asMap().entries) {
+                        final classItem = entry.value;
+                        final count = countByClassId[classItem.id] ?? 0;
+                        if (!isAdmin && count == 0) {
+                          continue;
+                        }
+                        tiles.add(
+                          Reveal(
+                            delayMs: 140 + entry.key * 70,
+                            child: SizedBox(
+                              width: itemWidth,
+                              child: _ClassCard(
+                                title: classItem.name,
+                                subtitle: '$count nilai',
+                                icon: Icons.score_rounded,
+                                onTap: () => Get.to(
+                                  () => NilaiClassView(
+                                    classId: classItem.id,
+                                    className: classItem.name,
                                   ),
-                                );
-                              }
-                              if (hasUnassigned) {
-                                tiles.add(
-                                  Reveal(
-                                    delayMs: 140 + tiles.length * 70,
-                                    child: SizedBox(
-                                      width: itemWidth,
-                                      child: _ClassCard(
-                                        title: 'Tanpa Kelas',
-                                        subtitle:
-                                            '${countByClassId[''] ?? 0} nilai',
-                                        icon: Icons.folder_off_rounded,
-                                        onTap: () => Get.to(
-                                          () => const NilaiClassView(
-                                            classId: null,
-                                            className: 'Tanpa Kelas',
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              return Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: tiles,
-                              );
-                            },
+                                ),
+                              ),
+                            ),
                           ),
+                        );
+                      }
+                      if (hasUnassigned) {
+                        tiles.add(
+                          Reveal(
+                            delayMs: 140 + tiles.length * 70,
+                            child: SizedBox(
+                              width: itemWidth,
+                              child: _ClassCard(
+                                title: 'Tanpa Kelas',
+                                subtitle: '${countByClassId[''] ?? 0} nilai',
+                                icon: Icons.folder_off_rounded,
+                                onTap: () => Get.to(
+                                  () => const NilaiClassView(
+                                    classId: null,
+                                    className: 'Tanpa Kelas',
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: tiles,
+                      );
+                    },
+                  );
+                }(),
               ),
             ],
           ),
@@ -380,11 +401,19 @@ class NilaiClassView extends GetView<NilaiController> {
     return Scaffold(
       appBar: AppBar(title: Text('Nilai $className')),
       body: Obx(() {
+        final isAdmin = authService.role.value == 'admin';
+        final userName = authService.name.value.trim();
         final items = controller.nilai.where((item) {
           if (classId == null || classId!.isEmpty) {
             return item.classId == null || item.classId!.isEmpty;
           }
           return item.classId == classId;
+        }).where((item) {
+          if (isAdmin) {
+            return true;
+          }
+          return userName.isNotEmpty &&
+              item.studentName.toLowerCase() == userName.toLowerCase();
         }).toList();
         final isLoading = controller.isLoading.value;
         final average = items.isEmpty
@@ -399,7 +428,7 @@ class NilaiClassView extends GetView<NilaiController> {
             child: ListView(
               padding: EdgeInsets.zero,
               children: [
-                if (authService.role.value == 'admin')
+                if (isAdmin)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
                     child: _AdminPanel(
@@ -448,8 +477,7 @@ class NilaiClassView extends GetView<NilaiController> {
                                                 const EdgeInsets.only(bottom: 12),
                                             child: _NilaiCard(
                                               item: item,
-                                              isAdmin:
-                                                  authService.role.value == 'admin',
+                                              isAdmin: isAdmin,
                                               onEdit: () => showNilaiForm(
                                                 context,
                                                 controller,
@@ -490,7 +518,7 @@ class NilaiClassView extends GetView<NilaiController> {
                                                     Text(item.assignmentTitle ?? '-')),
                                                 DataCell(Text(item.score.toString())),
                                                 DataCell(
-                                                  authService.role.value == 'admin'
+                                                  isAdmin
                                                       ? Row(
                                                           children: [
                                                             IconButton(

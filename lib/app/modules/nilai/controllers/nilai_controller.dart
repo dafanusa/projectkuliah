@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../../models/assignment_item.dart';
+import '../../../models/assignment_submission.dart';
 import '../../../models/grade_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
@@ -68,5 +69,35 @@ class NilaiController extends GetxController {
   Future<void> deleteGrade(String id) async {
     await _dataService.deleteGrade(id);
     await loadAll();
+  }
+
+  Future<List<AssignmentSubmission>> loadSubmissionStudents(
+    String? assignmentId, {
+    String? assignmentTitle,
+    String? classId,
+  }) async {
+    if (assignmentId == null || assignmentId.isEmpty) {
+      return [];
+    }
+    final submissions = await _dataService.fetchAllSubmissions();
+    var filtered = submissions
+        .where((item) => item.assignmentId == assignmentId)
+        .toList();
+    if (filtered.isEmpty &&
+        assignmentTitle != null &&
+        assignmentTitle.trim().isNotEmpty) {
+      final titleKey = assignmentTitle.trim().toLowerCase();
+      filtered = submissions.where((item) {
+        final title = item.assignmentTitle?.trim().toLowerCase();
+        if (title == null || title.isEmpty) {
+          return false;
+        }
+        if (classId != null && classId.isNotEmpty && item.classId != classId) {
+          return false;
+        }
+        return title == titleKey;
+      }).toList();
+    }
+    return filtered;
   }
 }
