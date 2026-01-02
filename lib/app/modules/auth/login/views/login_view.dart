@@ -165,7 +165,7 @@ class _HeroBanner extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               const Text(
-                'Portal Nusa Akademi',
+                'PortalNusaAkademi',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -259,6 +259,8 @@ class _FormCard extends StatelessWidget {
                 onPressed: () => Get.snackbar(
                   'Lupa Password',
                   'Silakan hubungi admin untuk reset password.',
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
                 ),
                 child: const Text('Lupa password?'),
               ),
@@ -288,6 +290,8 @@ class _FormCard extends StatelessWidget {
               onPressed: () => Get.snackbar(
                 'Google Login',
                 'Fitur login Google belum diaktifkan.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
               ),
               icon: const Icon(Icons.g_mobiledata_rounded),
               label: const Text('Masuk dengan Google'),

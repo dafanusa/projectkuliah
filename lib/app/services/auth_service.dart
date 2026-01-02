@@ -12,6 +12,8 @@ class AuthService extends GetxService {
   final Rxn<User> user = Rxn<User>();
   final RxString role = ''.obs;
   final RxString name = ''.obs;
+  final RxString nim = ''.obs;
+  final RxString avatarUrl = ''.obs;
   final RxBool suspendRedirect = false.obs;
   StreamSubscription<AuthState>? _subscription;
 
@@ -45,6 +47,8 @@ class AuthService extends GetxService {
       } else {
         role.value = '';
         name.value = '';
+        nim.value = '';
+        avatarUrl.value = '';
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (Get.currentRoute != Routes.welcome &&
               Get.currentRoute != Routes.login &&
@@ -62,21 +66,53 @@ class AuthService extends GetxService {
       return;
     }
     try {
+      final meta = currentUser.userMetadata ?? {};
+      final metaName = (meta['name'] ?? '') as String;
+      final metaRole = (meta['role'] ?? 'user') as String;
+      final metaNim = (meta['nim'] ?? '') as String;
       final response = await _client
           .from('profiles')
-          .select('name, role')
+          .select('name, role, nim, avatar_url')
           .eq('id', currentUser.id)
           .maybeSingle();
 
       if (response == null) {
+        if (metaName.isNotEmpty || metaNim.isNotEmpty) {
+          await _client.from('profiles').upsert({
+            'id': currentUser.id,
+            'name': metaName,
+            'role': metaRole,
+            'nim': metaNim,
+          });
+        }
+        name.value = metaName;
+        role.value = metaRole;
+        nim.value = metaNim;
+        avatarUrl.value = '';
         return;
       }
 
-      name.value = (response['name'] ?? '') as String;
-      role.value = (response['role'] ?? 'user') as String;
+      final profileName = (response['name'] ?? '') as String;
+      final profileRole = (response['role'] ?? 'user') as String;
+      final profileNim = (response['nim'] ?? '') as String;
+      final profileAvatar = (response['avatar_url'] ?? '') as String;
+      if ((profileName.isEmpty && metaName.isNotEmpty) ||
+          (profileNim.isEmpty && metaNim.isNotEmpty)) {
+        await _client.from('profiles').update({
+          'name': profileName.isEmpty ? metaName : profileName,
+          'nim': profileNim.isEmpty ? metaNim : profileNim,
+        }).eq('id', currentUser.id);
+      }
+
+      name.value = profileName.isEmpty ? metaName : profileName;
+      role.value = profileRole.isEmpty ? metaRole : profileRole;
+      nim.value = profileNim.isEmpty ? metaNim : profileNim;
+      avatarUrl.value = profileAvatar;
     } catch (_) {
       name.value = '';
       role.value = '';
+      nim.value = '';
+      avatarUrl.value = '';
     }
   }
 
@@ -86,6 +122,7 @@ class AuthService extends GetxService {
 
   Future<void> signUp({
     required String name,
+    required String nim,
     required String email,
     required String password,
     required String role,
@@ -93,12 +130,22 @@ class AuthService extends GetxService {
     final result = await _client.auth.signUp(
       email: email,
       password: password,
-      data: {'name': name, 'role': role},
+      data: {'name': name, 'role': role, 'nim': nim},
     );
 
     final createdUser = result.user;
     if (createdUser == null) {
       return;
+    }
+    try {
+      await _client.from('profiles').upsert({
+        'id': createdUser.id,
+        'name': name,
+        'role': role,
+        'nim': nim,
+      });
+    } catch (_) {
+      // Ignore profile insert errors; profile can be updated later.
     }
   }
 

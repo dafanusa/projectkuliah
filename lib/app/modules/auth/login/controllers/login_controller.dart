@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../services/auth_service.dart';
+import '../../../../theme/app_colors.dart';
 
 class LoginController extends GetxController {
   final emailController = TextEditingController();
@@ -20,7 +21,12 @@ class LoginController extends GetxController {
     final password = passwordController.text;
 
     if (email.isEmpty || password.isEmpty) {
-      Get.snackbar('Login gagal', 'Email dan password wajib diisi.');
+      Get.snackbar(
+        'Login gagal',
+        'Email dan password wajib diisi.',
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
       return;
     }
 
@@ -28,7 +34,12 @@ class LoginController extends GetxController {
       isLoading.value = true;
       await _authService.signIn(email: email, password: password);
     } catch (error) {
-      Get.snackbar('Login gagal', error.toString());
+      Get.snackbar(
+        'Login gagal',
+        error.toString(),
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
     } finally {
       isLoading.value = false;
     }

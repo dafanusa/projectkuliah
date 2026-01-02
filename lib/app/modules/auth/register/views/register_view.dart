@@ -164,7 +164,7 @@ class _HeroBanner extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               const Text(
-                'Portal Nusa Akademi',
+                'PortalNusaAkademi',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
@@ -233,6 +233,15 @@ class _FormCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             TextField(
+              controller: controller.nimController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'NIM',
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
               controller: controller.emailController,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(
@@ -286,6 +295,8 @@ class _FormCard extends StatelessWidget {
               onPressed: () => Get.snackbar(
                 'Google Register',
                 'Fitur daftar Google belum diaktifkan.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
               ),
               icon: const Icon(Icons.g_mobiledata_rounded),
               label: const Text('Daftar dengan Google'),

@@ -32,17 +32,19 @@ class HomeView extends GetView<HomeController> {
       final isAdmin = authService.role.value == 'admin';
       final materi = materiController.materi.toList();
       final tugas = tugasController.tugas.toList();
-      final hasil = hasilController.hasil.toList();
+      final submissions = hasilController.submissions.toList();
       final nilai = nilaiController.nilai.toList();
       final now = DateTime.now();
 
       final aktifTugas =
           tugas.where((item) => item.deadline.isAfter(now)).toList();
       final lewatTugas = tugas.length - aktifTugas.length;
-      final totalMissing = hasil.fold<int>(0, (sum, item) => sum + item.missing);
-      final totalCollected =
-          hasil.fold<int>(0, (sum, item) => sum + item.collected);
-      final totalGraded = hasil.fold<int>(0, (sum, item) => sum + item.graded);
+      final totalOnTime = submissions
+          .where((item) => item.status == 'tepat_waktu')
+          .length;
+      final totalLate = submissions
+          .where((item) => item.status == 'terlambat')
+          .length;
       final avgScore = nilai.isEmpty
           ? 0
           : (nilai.fold<int>(0, (sum, item) => sum + item.score) /
@@ -88,6 +90,7 @@ class HomeView extends GetView<HomeController> {
                   value: materi.length.toString(),
                   caption: 'Tersimpan',
                   icon: Icons.menu_book_rounded,
+                  accent: AppColors.navy,
                   progress: materi.isEmpty ? 0 : 1,
                 ),
                 _StatItem(
@@ -95,24 +98,27 @@ class HomeView extends GetView<HomeController> {
                   value: aktifTugas.length.toString(),
                   caption: '$lewatTugas lewat',
                   icon: Icons.assignment_rounded,
+                  accent: AppColors.navy,
                   progress: tugas.isEmpty
                       ? 0
                       : aktifTugas.length / tugas.length,
                 ),
                 _StatItem(
-                  label: 'Belum Dinilai',
-                  value: totalMissing.toString(),
-                  caption: '$totalGraded dinilai',
+                  label: 'Pengumpulan',
+                  value: submissions.length.toString(),
+                  caption: '$totalLate terlambat',
                   icon: Icons.fact_check_rounded,
-                  progress: totalCollected + totalMissing == 0
+                  accent: AppColors.navy,
+                  progress: submissions.isEmpty
                       ? 0
-                      : totalGraded / (totalCollected + totalMissing),
+                      : totalOnTime / submissions.length,
                 ),
                 _StatItem(
                   label: 'Rata-rata',
                   value: avgScore.toString(),
                   caption: '${nilai.length} nilai',
                   icon: Icons.score_rounded,
+                  accent: AppColors.navy,
                   progress: avgScore / 100,
                 ),
               ],
@@ -120,8 +126,8 @@ class HomeView extends GetView<HomeController> {
             const SizedBox(height: 20),
             if (isAdmin) ...[
               _SectionHeader(
-                title: 'CRUD Cepat',
-                actionLabel: 'Kelola Semua',
+                title: 'Aksi Cepat',
+                actionLabel: 'Lihat Semua',
                 onAction: () => navController.changeIndex(1),
               ),
               const SizedBox(height: 12),
@@ -164,14 +170,10 @@ class HomeView extends GetView<HomeController> {
                       SizedBox(
                         width: itemWidth,
                         child: _ActionCard(
-                          title: 'Input Hasil',
-                          subtitle: 'Rekap pengumpulan',
+                          title: 'Kelola Hasil',
+                          subtitle: 'Pantau pengumpulan',
                           icon: Icons.fact_check_rounded,
-                          onTap: () => showHasilForm(
-                            context,
-                            hasilController,
-                            classesController,
-                          ),
+                          onTap: () => navController.changeIndex(3),
                         ),
                       ),
                       SizedBox(
@@ -205,7 +207,7 @@ class HomeView extends GetView<HomeController> {
                 subtitle: 'Tugas yang aktif akan muncul di sini.',
               )
             else
-              ...upcomingTugas.map(
+              ...upcomingTugas.take(3).map(
                 (item) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _TugasTile(
@@ -237,7 +239,7 @@ class HomeView extends GetView<HomeController> {
                 subtitle: 'Materi baru akan muncul di sini.',
               )
             else
-              ...latestMateri.map(
+              ...latestMateri.take(3).map(
                 (item) => Padding(
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _MateriTile(
@@ -258,15 +260,15 @@ class HomeView extends GetView<HomeController> {
               ),
             const SizedBox(height: 20),
             _SectionHeader(
-              title: 'Ringkasan Penilaian',
-              actionLabel: 'Kelola Hasil',
+              title: 'Ringkasan Pengumpulan',
+              actionLabel: 'Lihat Hasil',
               onAction: () => navController.changeIndex(3),
             ),
             const SizedBox(height: 12),
             _ScoreSummary(
-              collected: totalCollected,
-              missing: totalMissing,
-              graded: totalGraded,
+              total: submissions.length,
+              onTime: totalOnTime,
+              late: totalLate,
               onTap: () => navController.changeIndex(3),
             ),
             const SizedBox(height: 40),
@@ -432,6 +434,7 @@ class _StatItem {
   final String value;
   final String caption;
   final IconData icon;
+  final Color accent;
   final double progress;
 
   const _StatItem({
@@ -439,6 +442,7 @@ class _StatItem {
     required this.value,
     required this.caption,
     required this.icon,
+    required this.accent,
     required this.progress,
   });
 }
@@ -483,9 +487,8 @@ class _StatCard extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.navy,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border),
         boxShadow: const [
           BoxShadow(
             color: Color(0x1400142B),
@@ -502,17 +505,25 @@ class _StatCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8ECF5),
+                  color: Colors.white.withOpacity(0.18),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(item.icon, color: AppColors.navy),
+                child: Icon(item.icon, color: Colors.white),
               ),
               const Spacer(),
-              Text(
-                item.label,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  item.label,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -521,15 +532,18 @@ class _StatCard extends StatelessWidget {
           Text(
             item.value,
             style: const TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w700,
-              color: AppColors.navy,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             item.caption,
-            style: const TextStyle(color: AppColors.textSecondary),
+            style: const TextStyle(
+              color: Color(0xFFD6E0F5),
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 12),
           ClipRRect(
@@ -537,10 +551,16 @@ class _StatCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progressValue,
               minHeight: 6,
-              backgroundColor: const Color(0xFFE8ECF5),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.navy,
-              ),
+              backgroundColor: Colors.white.withOpacity(0.2),
+              valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${(progressValue * 100).round()}% tercapai',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFFD6E0F5),
             ),
           ),
         ],
@@ -571,9 +591,9 @@ class _ActionCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: const Color(0xFFF1F5FF),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.border),
+          border: Border.all(color: const Color(0xFFD7E2F6)),
           boxShadow: const [
             BoxShadow(
               color: Color(0x1200142B),
@@ -585,13 +605,34 @@ class _ActionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8ECF5),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: AppColors.navy),
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: AppColors.navy),
+                ),
+                const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.navy.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text(
+                    'Aksi',
+                    style: TextStyle(
+                      color: AppColors.navy,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 12),
             Text(
@@ -604,7 +645,10 @@ class _ActionCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               subtitle,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -830,22 +874,21 @@ class _InfoPill extends StatelessWidget {
 }
 
 class _ScoreSummary extends StatelessWidget {
-  final int collected;
-  final int missing;
-  final int graded;
+  final int total;
+  final int onTime;
+  final int late;
   final VoidCallback onTap;
 
   const _ScoreSummary({
-    required this.collected,
-    required this.missing,
-    required this.graded,
+    required this.total,
+    required this.onTime,
+    required this.late,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final total = collected + missing;
-    final progress = total == 0 ? 0.0 : graded / total;
+    final progress = total == 0 ? 0.0 : onTime / total;
     return Card(
       child: InkWell(
         onTap: onTap,
@@ -872,11 +915,11 @@ class _ScoreSummary extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Progres Penilaian',
+                          'Progres Pengumpulan',
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: 4),
-                        Text('Terkumpul $collected, belum $missing.'),
+                        Text('Total $total, tepat $onTime, terlambat $late.'),
                       ],
                     ),
                   ),
@@ -896,7 +939,7 @@ class _ScoreSummary extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                'Dinilai $graded dari $total tugas terkumpul',
+                'Tepat waktu $onTime dari $total pengumpulan',
                 style: const TextStyle(color: AppColors.textSecondary),
               ),
             ],

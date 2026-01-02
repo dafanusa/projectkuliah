@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../services/auth_service.dart';
+import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
@@ -15,6 +16,7 @@ class ProfileView extends GetView<ProfileController> {
   Widget build(BuildContext context) {
     final authService = controller.authService;
     final classesController = Get.find<ClassesController>();
+    final dataService = Get.find<DataService>();
 
     return RefreshIndicator(
       onRefresh: classesController.loadClasses,
@@ -24,7 +26,11 @@ class ProfileView extends GetView<ProfileController> {
           children: [
             Reveal(
               delayMs: 60,
-              child: _ProfileHero(authService: authService),
+              child: _ProfileHero(
+                authService: authService,
+                dataService: dataService,
+                controller: controller,
+              ),
             ),
             const SizedBox(height: 16),
             Reveal(
@@ -63,8 +69,14 @@ class ProfileView extends GetView<ProfileController> {
 
 class _ProfileHero extends StatelessWidget {
   final AuthService authService;
+  final DataService dataService;
+  final ProfileController controller;
 
-  const _ProfileHero({required this.authService});
+  const _ProfileHero({
+    required this.authService,
+    required this.dataService,
+    required this.controller,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -79,41 +91,89 @@ class _ProfileHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
       ),
       child: Obx(
-        () => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              authService.name.value.isEmpty
-                  ? 'Profil Pengguna'
-                  : authService.name.value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.w700,
+        () {
+          final name = authService.name.value;
+          final nim = authService.nim.value;
+          final email = authService.user.value?.email ?? '-';
+          final avatarPath = authService.avatarUrl.value;
+          final avatarUrl = avatarPath.isEmpty
+              ? null
+              : dataService.getPublicUrl(bucket: 'avatars', path: avatarPath);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: Colors.white.withOpacity(0.2),
+                    backgroundImage:
+                        avatarUrl == null ? null : NetworkImage(avatarUrl),
+                    child: avatarUrl == null
+                        ? const Icon(Icons.person_rounded,
+                            color: Colors.white)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.isEmpty ? 'Profil Pengguna' : name,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          nim.isEmpty ? 'NIM: -' : 'NIM: $nim',
+                          style: const TextStyle(color: Color(0xFFD6E0F5)),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          style: const TextStyle(color: Color(0xFFD6E0F5)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Obx(
+                    () => IconButton(
+                      onPressed: controller.isUploading.value
+                          ? null
+                          : controller.pickAndUploadAvatar,
+                      icon: Icon(
+                        controller.isUploading.value
+                            ? Icons.hourglass_empty_rounded
+                            : Icons.camera_alt_rounded,
+                        color: Colors.white,
+                      ),
+                      tooltip: 'Ubah foto',
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              authService.user.value?.email ?? '-',
-              style: const TextStyle(color: Color(0xFFD6E0F5)),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 6,
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Role: ${authService.role.value.isEmpty ? '-' : authService.role.value}',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
               ),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                'Role: ${authService.role.value.isEmpty ? '-' : authService.role.value}',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -129,7 +189,7 @@ class _ProfileStats extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 820;
-        final width = isWide ? (constraints.maxWidth - 12) / 2 : null;
+        final width = isWide ? (constraints.maxWidth - 24) / 3 : null;
         return Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -139,6 +199,16 @@ class _ProfileStats extends StatelessWidget {
               label: 'Status',
               value: 'Aktif',
               icon: Icons.verified_rounded,
+            ),
+            Obx(
+              () => _StatCard(
+                width: width,
+                label: 'NIM',
+                value: authService.nim.value.isEmpty
+                    ? '-'
+                    : authService.nim.value,
+                icon: Icons.badge_rounded,
+              ),
             ),
             Obx(
               () => _StatCard(
@@ -299,6 +369,7 @@ class _ClassSection extends StatelessWidget {
   }
 }
 
+
 Future<void> _openAddClassDialog(ClassesController controller) async {
   final nameController = TextEditingController();
   await Get.dialog(
@@ -314,7 +385,12 @@ Future<void> _openAddClassDialog(ClassesController controller) async {
           onPressed: () async {
             final name = nameController.text.trim();
             if (name.isEmpty) {
-              Get.snackbar('Gagal', 'Nama kelas wajib diisi.');
+              Get.snackbar(
+                'Gagal',
+                'Nama kelas wajib diisi.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+              );
               return;
             }
             await controller.addClass(name);
@@ -346,7 +422,12 @@ Future<void> _openEditClassDialog(
           onPressed: () async {
             final name = nameController.text.trim();
             if (name.isEmpty) {
-              Get.snackbar('Gagal', 'Nama kelas wajib diisi.');
+              Get.snackbar(
+                'Gagal',
+                'Nama kelas wajib diisi.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+              );
               return;
             }
             await controller.updateClass(id, name);

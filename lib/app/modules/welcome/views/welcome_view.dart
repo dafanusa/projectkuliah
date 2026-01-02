@@ -54,6 +54,13 @@ class _WelcomeViewState extends State<WelcomeView> {
                               },
                               children: const [
                                 _WelcomeSlide(
+                                  imageAsset: 'assets/dosen.jpg',
+                                  badge: 'Dosen Pembimbing',
+                                  title: 'Dr. Yahya Nusa, S.E., M.Si., CTT',
+                                  subtitle:
+                                      'Portal personal untuk terhubung dengan karya dan materi dosen.',
+                                ),
+                                _WelcomeSlide(
                                   imageAsset: 'assets/welcome1.png',
                                   badge: 'Akademik Terpadu',
                                   title: 'PORTAL NUSA AKADEMI',
@@ -82,7 +89,7 @@ class _WelcomeViewState extends State<WelcomeView> {
                               left: 0,
                               right: 0,
                               bottom: 14,
-                              child: _PageDots(activeIndex: _index, count: 3),
+                              child: _PageDots(activeIndex: _index, count: 4),
                             ),
                           ],
                         ),
@@ -174,7 +181,7 @@ class _TopBrand extends StatelessWidget {
               Icon(Icons.school_rounded, color: AppColors.navy, size: 18),
               SizedBox(width: 8),
               Text(
-                'Portal Nusa Akademi',
+                'PortalNusaAkademi',
                 style: TextStyle(
                   fontWeight: FontWeight.w900,
                   color: AppColors.navy,

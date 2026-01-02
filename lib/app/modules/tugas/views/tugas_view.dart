@@ -1,9 +1,12 @@
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/assignment_item.dart';
+import '../../../models/assignment_submission.dart';
+import '../../../models/student_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
@@ -20,6 +23,7 @@ class TugasView extends GetView<TugasController> {
   Widget build(BuildContext context) {
     final authService = Get.find<AuthService>();
     final classesController = Get.find<ClassesController>();
+    final dataService = Get.find<DataService>();
 
     return Obx(() {
       final items = controller.tugas.toList();
@@ -518,10 +522,12 @@ class TugasClassView extends GetView<TugasController> {
   Widget build(BuildContext context) {
     final authService = Get.find<AuthService>();
     final classesController = Get.find<ClassesController>();
+    final dataService = Get.find<DataService>();
 
     return Scaffold(
       appBar: AppBar(title: Text('Tugas $className')),
       body: Obx(() {
+        final isAdmin = authService.role.value == 'admin';
         final items = controller.tugas.where((item) {
           if (classId == null || classId!.isEmpty) {
             return item.classId == null || item.classId!.isEmpty;
@@ -599,8 +605,18 @@ class TugasClassView extends GetView<TugasController> {
                                           width: itemWidth,
                                           child: _ListCard(
                                             item: item,
-                                            isAdmin:
-                                                authService.role.value == 'admin',
+                                            isAdmin: isAdmin,
+                                            onTap: () async {
+                                              final result = await Get.to(
+                                                () => TugasDetailView(
+                                                  assignment: item,
+                                                  className: className,
+                                                ),
+                                              );
+                                              if (result == true) {
+                                                await controller.loadTugas();
+                                              }
+                                            },
                                             onEdit: () => showTugasForm(
                                               context,
                                               controller,
@@ -631,12 +647,14 @@ class TugasClassView extends GetView<TugasController> {
 class _ListCard extends StatelessWidget {
   final AssignmentItem item;
   final bool isAdmin;
+  final VoidCallback onTap;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   const _ListCard({
     required this.item,
     required this.isAdmin,
+    required this.onTap,
     required this.onEdit,
     required this.onDelete,
   });
@@ -647,16 +665,19 @@ class _ListCard extends StatelessWidget {
     final isExpired = item.deadline.isBefore(DateTime.now());
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: const LinearGradient(
-            colors: [Color(0xFFF9FAFF), Color(0xFFF1F4FF)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFF9FAFF), Color(0xFFF1F4FF)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
           ),
-        ),
-        child: Row(
+          child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
@@ -733,6 +754,23 @@ class _ListCard extends StatelessWidget {
                               ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            TextButton.icon(
+                              onPressed: onTap,
+                              icon: Icon(
+                                isAdmin
+                                    ? Icons.fact_check_rounded
+                                    : Icons.edit_note_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
+                                isAdmin ? 'Lihat Pengumpulan' : 'Jawab Tugas',
+                              ),
+                            ),
+                          ],
+                        ),
                         if (item.filePath != null && item.filePath!.isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 10),
@@ -747,6 +785,7 @@ class _ListCard extends StatelessWidget {
           ],
         ),
       ),
+    )
     );
   }
 }
@@ -883,6 +922,666 @@ class _ActionIcon extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Icon(icon, size: 18, color: color),
+      ),
+    );
+  }
+}
+
+class TugasDetailView extends StatefulWidget {
+  final AssignmentItem assignment;
+  final String className;
+
+  const TugasDetailView({
+    super.key,
+    required this.assignment,
+    required this.className,
+  });
+
+  @override
+  State<TugasDetailView> createState() => _TugasDetailViewState();
+}
+
+class _TugasDetailViewState extends State<TugasDetailView> {
+  final TugasController _controller = Get.find<TugasController>();
+  final AuthService _authService = Get.find<AuthService>();
+  final DataService _dataService = Get.find<DataService>();
+
+  List<AssignmentSubmission> _submissions = [];
+  List<StudentItem> _students = [];
+  AssignmentSubmission? _mySubmission;
+  bool _isLoading = true;
+  bool _isUploading = false;
+  String? _selectedFilePath;
+  String? _selectedFileName;
+  late final TextEditingController _answerController;
+
+  @override
+  void initState() {
+    super.initState();
+    _answerController = TextEditingController();
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _answerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
+    try {
+      final submissions =
+          await _controller.loadSubmissions(widget.assignment.id);
+      final isAdmin = _authService.role.value == 'admin';
+      AssignmentSubmission? mySubmission;
+      if (!isAdmin) {
+        mySubmission =
+            await _controller.loadMySubmission(widget.assignment.id);
+        _answerController.text = mySubmission?.content ?? '';
+        _selectedFilePath = mySubmission?.filePath;
+        _selectedFileName = _selectedFilePath == null
+            ? null
+            : _fileNameFromPath(_selectedFilePath!);
+      }
+      final students = isAdmin
+          ? await _controller.loadClassStudents(widget.assignment.classId)
+          : <StudentItem>[];
+      setState(() {
+        _submissions = submissions;
+        _students = students;
+        _mySubmission = mySubmission;
+      });
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final result = await openFile(
+      acceptedTypeGroups: const [
+        XTypeGroup(
+          label: 'Dokumen',
+          extensions: ['pdf', 'docx', 'zip'],
+        ),
+      ],
+    );
+    if (result == null) {
+      return;
+    }
+    setState(() => _isUploading = true);
+    try {
+      setState(() {
+        _selectedFileName = result.name;
+        _selectedFilePath = null;
+      });
+      final path = await _controller.uploadSubmissionFile(result);
+      if (path != null) {
+        setState(() {
+          _selectedFilePath = path;
+        });
+      } else {
+        _showMessage(
+          title: 'Gagal',
+          message: 'Upload gagal. Coba lagi.',
+        );
+      }
+    } catch (error) {
+      _showMessage(
+        title: 'Gagal',
+        message: error.toString(),
+      );
+    } finally {
+      setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _submit() async {
+    final content = _answerController.text.trim();
+    final hasContent = content.isNotEmpty;
+    final hasFile = _selectedFilePath != null && _selectedFilePath!.isNotEmpty;
+    if (!hasContent && !hasFile) {
+      _showMessage(
+        title: 'Gagal',
+        message: 'Isi jawaban atau unggah file.',
+      );
+      return;
+    }
+    final error = await _controller.submitAssignment(
+      assignmentId: widget.assignment.id,
+      deadline: widget.assignment.deadline,
+      content: hasContent ? content : null,
+      filePath: hasFile ? _selectedFilePath : null,
+    );
+    if (error != null) {
+      _showMessage(
+        title: 'Gagal',
+        message: error,
+      );
+      return;
+    }
+    const snackDuration = Duration(seconds: 2);
+    _showMessage(
+      title: 'Berhasil',
+      message: 'Jawaban berhasil dikirim.',
+      duration: snackDuration,
+    );
+    await Future.delayed(snackDuration + const Duration(milliseconds: 100));
+    if (mounted) {
+      if (Get.isSnackbarOpen) {
+        Get.closeCurrentSnackbar();
+      }
+      Get.back(result: true);
+    }
+  }
+
+  void _showMessage({
+    required String title,
+    required String message,
+    Duration duration = const Duration(seconds: 2),
+  }) {
+    Get.snackbar(
+      title,
+      message,
+      backgroundColor: AppColors.navy,
+      colorText: Colors.white,
+      duration: duration,
+    );
+  }
+
+  String _fileNameFromPath(String path) {
+    final parts = path.split('/');
+    return parts.isEmpty ? path : parts.last;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = _authService.role.value == 'admin';
+    final deadlineLabel =
+        DateFormat('dd MMM yyyy - HH:mm').format(widget.assignment.deadline);
+    final now = DateTime.now();
+    final isLate = now.isAfter(widget.assignment.deadline);
+    final submittedOnTime =
+        _submissions.where((s) => s.status == 'tepat_waktu').length;
+    final submittedLate =
+        _submissions.where((s) => s.status == 'terlambat').length;
+    final submittedIds = _submissions.map((s) => s.userId).toSet();
+    final missingStudents = _students
+        .where((student) => !submittedIds.contains(student.id))
+        .toList();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Tugas ${widget.className}')),
+      body: RefreshIndicator(
+        onRefresh: _load,
+        child: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : ResponsiveCenter(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    _ClassHero(
+                      title: widget.assignment.title,
+                      subtitle: widget.assignment.instructions,
+                      badge: 'Deadline $deadlineLabel',
+                      icon: Icons.assignment_rounded,
+                    ),
+                    const SizedBox(height: 16),
+                    _InfoRow(
+                      leftLabel: 'Status',
+                      leftValue: isLate ? 'Terlambat' : 'Aktif',
+                      rightLabel: 'Kelas',
+                      rightValue: widget.className,
+                    ),
+                    const SizedBox(height: 16),
+                    if (isAdmin) ...[
+                      _SectionTitle('Pengumpulan'),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _StatChip(
+                              label: 'Tepat Waktu',
+                              value: submittedOnTime.toString()),
+                          const SizedBox(width: 8),
+                          _StatChip(
+                              label: 'Terlambat',
+                              value: submittedLate.toString()),
+                          const SizedBox(width: 8),
+                          _StatChip(
+                              label: 'Belum',
+                              value: missingStudents.length.toString()),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _SectionTitle('Sudah Mengumpulkan'),
+                      const SizedBox(height: 8),
+                      if (_submissions.isEmpty)
+                        const _EmptyText('Belum ada pengumpulan.')
+                      else
+                        ..._submissions.map(
+                          (item) => _SubmissionCard(
+                            submission: item,
+                            dataService: _dataService,
+                          ),
+                        ),
+                      const SizedBox(height: 16),
+                      _SectionTitle('Belum Mengumpulkan'),
+                      const SizedBox(height: 8),
+                      if (_students.isEmpty)
+                        const _EmptyText(
+                          'Data mahasiswa belum tersedia.',
+                        )
+                      else if (missingStudents.isEmpty)
+                        const _EmptyText('Semua mahasiswa sudah mengumpulkan.')
+                      else
+                        ...missingStudents.map(
+                          (student) => _MissingCard(student: student),
+                        ),
+                    ] else ...[
+                      _SectionTitle('Jawaban Saya'),
+                      const SizedBox(height: 8),
+                      if (_mySubmission != null)
+                        _MySubmissionCard(
+                          submission: _mySubmission!,
+                          dataService: _dataService,
+                        )
+                      else
+                        const _EmptyText('Belum ada jawaban.'),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _answerController,
+                        maxLines: 6,
+                        decoration: const InputDecoration(
+                          labelText: 'Jawaban tugas',
+                          alignLabelWithHint: true,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _selectedFileName ??
+                                  (_selectedFilePath == null
+                                      ? 'Belum ada file'
+                                      : 'File tersimpan'),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _isUploading ? null : _pickFile,
+                            child: Text(_isUploading ? 'Upload...' : 'Upload'),
+                          ),
+                        ],
+                      ),
+                      if (_selectedFileName != null &&
+                          _selectedFileName!.trim().isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: _SubmissionAttachmentPreview(
+                            path: _selectedFilePath,
+                            fileName: _selectedFileName!,
+                          ),
+                        ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: Obx(
+                          () => ElevatedButton(
+                            onPressed: _controller.isSubmitting.value
+                                ? null
+                                : _submit,
+                            child: _controller.isSubmitting.value
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : Text(
+                                    _mySubmission == null
+                                        ? 'Kirim Jawaban'
+                                        : 'Perbarui Jawaban',
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final String text;
+
+  const _SectionTitle(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: Theme.of(context).textTheme.titleMedium,
+    );
+  }
+}
+
+class _EmptyText extends StatelessWidget {
+  final String text;
+
+  const _EmptyText(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(color: AppColors.textSecondary),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final String leftLabel;
+  final String leftValue;
+  final String rightLabel;
+  final String rightValue;
+
+  const _InfoRow({
+    required this.leftLabel,
+    required this.leftValue,
+    required this.rightLabel,
+    required this.rightValue,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _InfoPill(label: leftLabel, value: leftValue)),
+        const SizedBox(width: 8),
+        Expanded(child: _InfoPill(label: rightLabel, value: rightValue)),
+      ],
+    );
+  }
+}
+
+class _SubmissionCard extends StatelessWidget {
+  final AssignmentSubmission submission;
+  final DataService dataService;
+
+  const _SubmissionCard({
+    required this.submission,
+    required this.dataService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final submittedLabel =
+        DateFormat('dd MMM yyyy - HH:mm').format(submission.submittedAt);
+    final nimLabel = submission.studentNim?.isNotEmpty == true
+        ? 'NIM: ${submission.studentNim}'
+        : null;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              submission.studentName ?? 'Mahasiswa',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            if (submission.studentEmail != null &&
+                submission.studentEmail!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  submission.studentEmail!,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            if (nimLabel != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  nimLabel,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            const SizedBox(height: 8),
+            _InfoPill(label: 'Dikirim', value: submittedLabel),
+            const SizedBox(height: 8),
+            _InfoPill(
+              label: 'Status',
+              value: submission.status == 'terlambat'
+                  ? 'Terlambat'
+                  : 'Tepat Waktu',
+            ),
+            if (submission.content != null &&
+                submission.content!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(submission.content!),
+            ],
+            if (submission.filePath != null &&
+                submission.filePath!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextButton(
+                  onPressed: () async {
+                    final url = dataService.getPublicUrl(
+                      bucket: 'assignments',
+                      path: submission.filePath!,
+                    );
+                    await launchUrl(Uri.parse(url),
+                        mode: LaunchMode.externalApplication);
+                  },
+                  child: const Text('Lihat lampiran'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MissingCard extends StatelessWidget {
+  final StudentItem student;
+
+  const _MissingCard({required this.student});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: ListTile(
+        leading: const Icon(Icons.hourglass_empty_rounded,
+            color: AppColors.navy),
+        title: Text(student.name),
+        subtitle:
+            student.email == null ? null : Text(student.email ?? ''),
+        trailing: const Text('Belum'),
+      ),
+    );
+  }
+}
+
+class _MySubmissionCard extends StatelessWidget {
+  final AssignmentSubmission submission;
+  final DataService dataService;
+
+  const _MySubmissionCard({
+    required this.submission,
+    required this.dataService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final submittedLabel =
+        DateFormat('dd MMM yyyy - HH:mm').format(submission.submittedAt);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _InfoPill(label: 'Dikirim', value: submittedLabel),
+            const SizedBox(height: 8),
+            _InfoPill(
+              label: 'Status',
+              value: submission.status == 'terlambat'
+                  ? 'Terlambat'
+                  : 'Tepat Waktu',
+            ),
+            if (submission.filePath != null &&
+                submission.filePath!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextButton(
+                  onPressed: () async {
+                    final url = dataService.getPublicUrl(
+                      bucket: 'assignments',
+                      path: submission.filePath!,
+                    );
+                    await launchUrl(Uri.parse(url),
+                        mode: LaunchMode.externalApplication);
+                  },
+                  child: const Text('Lihat lampiran'),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SubmissionAttachmentPreview extends StatelessWidget {
+  final String? path;
+  final String fileName;
+
+  const _SubmissionAttachmentPreview({
+    required this.path,
+    required this.fileName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final dataService = Get.find<DataService>();
+    final hasRemotePath = path != null && path!.trim().isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8ECF5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.attach_file_rounded,
+                size: 16, color: AppColors.navy),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Lampiran dipilih',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  fileName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          TextButton(
+            onPressed: hasRemotePath
+                ? () async {
+                    final url = dataService.getPublicUrl(
+                      bucket: 'assignments',
+                      path: path!,
+                    );
+                    await launchUrl(Uri.parse(url),
+                        mode: LaunchMode.externalApplication);
+                  }
+                : null,
+            child: Text(hasRemotePath ? 'Lihat' : 'Upload dulu'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MyHistoryCard extends StatelessWidget {
+  final AssignmentSubmission submission;
+  final DataService dataService;
+
+  const _MyHistoryCard({
+    required this.submission,
+    required this.dataService,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final submittedLabel =
+        DateFormat('dd MMM yyyy - HH:mm').format(submission.submittedAt);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              submission.assignmentTitle ?? 'Tugas',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 6),
+            _InfoPill(label: 'Dikirim', value: submittedLabel),
+            const SizedBox(height: 6),
+            _InfoPill(
+              label: 'Status',
+              value:
+                  submission.status == 'terlambat' ? 'Terlambat' : 'Tepat Waktu',
+            ),
+            if (submission.filePath != null &&
+                submission.filePath!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextButton(
+                  onPressed: () async {
+                    final url = dataService.getPublicUrl(
+                      bucket: 'assignments',
+                      path: submission.filePath!,
+                    );
+                    await launchUrl(Uri.parse(url),
+                        mode: LaunchMode.externalApplication);
+                  },
+                  child: const Text('Lihat lampiran'),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

@@ -103,7 +103,7 @@ class SplashView extends GetView<SplashController> {
                       ),
                       const SizedBox(height: 22),
                       const Text(
-                        'Portal Nusa Akademi',
+                        'PortalNusaAkademi',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,

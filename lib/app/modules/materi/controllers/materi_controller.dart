@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:get/get.dart';
 
+import '../../../models/lecturer_work_item.dart';
 import '../../../models/material_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
@@ -10,6 +11,7 @@ class MateriController extends GetxController {
   final AuthService _authService = Get.find<AuthService>();
 
   final materi = <MaterialItem>[].obs;
+  final karya = <LecturerWorkItem>[].obs;
   final isLoading = false.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
@@ -17,8 +19,17 @@ class MateriController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    loadMateri();
-    ever(_authService.role, (_) => loadMateri());
+    loadAll();
+    ever(_authService.role, (_) => loadAll());
+  }
+
+  Future<void> loadAll() async {
+    try {
+      isLoading.value = true;
+      await Future.wait([loadMateri(), loadKarya()]);
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   Future<void> loadMateri() async {
@@ -30,11 +41,28 @@ class MateriController extends GetxController {
     }
   }
 
+  Future<void> loadKarya() async {
+    try {
+      isLoading.value = true;
+      karya.value = await _dataService.fetchLecturerWorks();
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   Future<String?> uploadMateriFile(XFile file) async {
     return _dataService.uploadFile(
       file: file,
       bucket: 'materials',
       folder: 'materi',
+    );
+  }
+
+  Future<String?> uploadKaryaFile(XFile file) async {
+    return _dataService.uploadFile(
+      file: file,
+      bucket: 'materials',
+      folder: 'karya',
     );
   }
 
@@ -57,6 +85,23 @@ class MateriController extends GetxController {
     await loadMateri();
   }
 
+  Future<void> addKarya({
+    required String title,
+    required String description,
+    required String category,
+    required DateTime? date,
+    required String? filePath,
+  }) async {
+    await _dataService.insertLecturerWork({
+      'title': title,
+      'description': description,
+      'category': category,
+      'date': date?.toIso8601String(),
+      'file_path': filePath,
+    });
+    await loadKarya();
+  }
+
   Future<void> updateMateri({
     required String id,
     required String title,
@@ -77,8 +122,31 @@ class MateriController extends GetxController {
     await loadMateri();
   }
 
+  Future<void> updateKarya({
+    required String id,
+    required String title,
+    required String description,
+    required String category,
+    required DateTime? date,
+    required String? filePath,
+  }) async {
+    await _dataService.updateLecturerWork(id, {
+      'title': title,
+      'description': description,
+      'category': category,
+      'date': date?.toIso8601String(),
+      'file_path': filePath,
+    });
+    await loadKarya();
+  }
+
   Future<void> deleteMateri(String id) async {
     await _dataService.deleteMaterial(id);
     await loadMateri();
+  }
+
+  Future<void> deleteKarya(String id) async {
+    await _dataService.deleteLecturerWork(id);
+    await loadKarya();
   }
 }

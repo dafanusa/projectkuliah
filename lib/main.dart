@@ -33,7 +33,7 @@ class ProjectKuliahApp extends StatelessWidget {
 
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Portal Nusa Akademi',
+      title: 'PortalNusaAkademi',
       theme: AppTheme.light,
       initialRoute: initialRoute,
       getPages: AppPages.routes,
