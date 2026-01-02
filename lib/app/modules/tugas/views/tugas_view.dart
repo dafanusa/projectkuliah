@@ -1,4 +1,3 @@
-import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -8,6 +7,9 @@ import '../../../models/assignment_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/admin_forms.dart';
+import '../../../widgets/responsive_center.dart';
+import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
 import '../controllers/tugas_controller.dart';
 
@@ -21,64 +23,131 @@ class TugasView extends GetView<TugasController> {
 
     return Obx(() {
       final items = controller.tugas.toList();
+      final isLoading = controller.isLoading.value;
       final now = DateTime.now();
       final aktif = items.where((item) => item.deadline.isAfter(now)).length;
       final lewat = items.length - aktif;
+      final classes = classesController.classes.toList();
+      final hasUnassigned =
+          items.any((item) => item.classId == null || item.classId!.isEmpty);
+      final countByClassId = <String, int>{};
+      for (final item in items) {
+        final classId = item.classId ?? '';
+        countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
 
-      return ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Obx(() {
-            if (authService.role.value != 'admin') {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _AdminPanel(
-                title: 'Kelola Tugas',
-                subtitle: 'Buat tugas baru dan atur deadline.',
-                actionLabel: 'Buat Tugas',
-                onTap: () => _openTugasForm(
-                  context,
-                  controller,
-                  classesController,
+      return RefreshIndicator(
+        onRefresh: controller.loadTugas,
+        child: ResponsiveCenter(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (authService.role.value == 'admin')
+                Reveal(
+                  delayMs: 50,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Tugas',
+                      subtitle: 'Buat tugas baru dan atur deadline.',
+                      actionLabel: 'Buat Tugas',
+                      onTap: () => showTugasForm(
+                        context,
+                        controller,
+                        classesController,
+                      ),
+                    ),
+                  ),
+                ),
+              Reveal(
+                delayMs: 120,
+                child: _PageHeader(
+                  title: 'Tugas Mahasiswa',
+                  subtitle: 'Pantau deadline dan status tugas.',
+                  stats: [
+                    _HeaderStat(label: 'Aktif', value: aktif.toString()),
+                    _HeaderStat(label: 'Lewat', value: lewat.toString()),
+                    _HeaderStat(label: 'Total', value: items.length.toString()),
+                  ],
                 ),
               ),
-            );
-          }),
-          _PageHeader(
-            title: 'Tugas Mahasiswa',
-            subtitle: 'Pantau deadline dan status tugas.',
-            stats: [
-              _HeaderStat(label: 'Aktif', value: aktif.toString()),
-              _HeaderStat(label: 'Lewat', value: lewat.toString()),
-              _HeaderStat(label: 'Total', value: items.length.toString()),
+              const SizedBox(height: 16),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isLoading && items.isEmpty && classes.isEmpty
+                    ? const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : items.isEmpty && classes.isEmpty
+                        ? const _EmptyState(
+                            title: 'Belum ada tugas',
+                            subtitle: 'Admin bisa menambahkan tugas baru.',
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isWide = constraints.maxWidth > 720;
+                              final itemWidth = isWide
+                                  ? (constraints.maxWidth - 12) / 2
+                                  : constraints.maxWidth;
+                              final tiles = <Widget>[];
+                              for (final entry in classes.asMap().entries) {
+                                final classItem = entry.value;
+                                final count =
+                                    countByClassId[classItem.id] ?? 0;
+                                tiles.add(
+                                  Reveal(
+                                    delayMs: 140 + entry.key * 70,
+                                    child: SizedBox(
+                                      width: itemWidth,
+                                      child: _ClassCard(
+                                        title: classItem.name,
+                                        subtitle: '$count tugas',
+                                        icon: Icons.assignment_rounded,
+                                        onTap: () => Get.to(
+                                          () => TugasClassView(
+                                            classId: classItem.id,
+                                            className: classItem.name,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              if (hasUnassigned) {
+                                tiles.add(
+                                  Reveal(
+                                    delayMs: 140 + tiles.length * 70,
+                                    child: SizedBox(
+                                      width: itemWidth,
+                                      child: _ClassCard(
+                                        title: 'Tanpa Kelas',
+                                        subtitle:
+                                            '${countByClassId[''] ?? 0} tugas',
+                                        icon: Icons.folder_off_rounded,
+                                        onTap: () => Get.to(
+                                          () => const TugasClassView(
+                                            classId: null,
+                                            className: 'Tanpa Kelas',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: tiles,
+                              );
+                            },
+                          ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (items.isEmpty)
-            const _EmptyState(
-              title: 'Belum ada tugas',
-              subtitle: 'Admin bisa menambahkan tugas baru.',
-            )
-          else
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ListCard(
-                  item: item,
-                  isAdmin: authService.role.value == 'admin',
-                  onEdit: () => _openTugasForm(
-                    context,
-                    controller,
-                    classesController,
-                    item: item,
-                  ),
-                  onDelete: () => controller.deleteTugas(item.id),
-                ),
-              ),
-            ),
-        ],
+        ),
       );
     });
   }
@@ -239,6 +308,326 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+class _ClassHero extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String badge;
+  final IconData icon;
+
+  const _ClassHero({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B1E3B), Color(0xFF2C3E66), Color(0xFF21304A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2600142B),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -30,
+            right: -20,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -20,
+            left: -10,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.06),
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Color(0xFFD6E0F5)),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatChip extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _StatChip({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF5),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Text(
+        '$label: $value',
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _ClassCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ClassCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppColors.navy),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class TugasClassView extends GetView<TugasController> {
+  final String? classId;
+  final String className;
+
+  const TugasClassView({
+    super.key,
+    required this.classId,
+    required this.className,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Tugas $className')),
+      body: Obx(() {
+        final items = controller.tugas.where((item) {
+          if (classId == null || classId!.isEmpty) {
+            return item.classId == null || item.classId!.isEmpty;
+          }
+          return item.classId == classId;
+        }).toList();
+        final isLoading = controller.isLoading.value;
+        final now = DateTime.now();
+        final aktif = items.where((item) => item.deadline.isAfter(now)).length;
+        final lewat = items.length - aktif;
+
+        return RefreshIndicator(
+          onRefresh: controller.loadTugas,
+          child: ResponsiveCenter(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                if (authService.role.value == 'admin')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Tugas',
+                      subtitle: 'Atur tugas untuk $className.',
+                      actionLabel: 'Buat Tugas',
+                      onTap: () => showTugasForm(
+                        context,
+                        controller,
+                        classesController,
+                        fixedClassId: classId,
+                        fixedClassName: className,
+                      ),
+                    ),
+                  ),
+                _ClassHero(
+                  title: 'Tugas $className',
+                  subtitle: 'Pantau deadline dan status tugas.',
+                  badge: '${items.length} tugas',
+                  icon: Icons.assignment_rounded,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _StatChip(label: 'Aktif', value: aktif.toString()),
+                    const SizedBox(width: 8),
+                    _StatChip(label: 'Lewat', value: lewat.toString()),
+                    const SizedBox(width: 8),
+                    _StatChip(label: 'Total', value: items.length.toString()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: isLoading && items.isEmpty
+                      ? const SizedBox(
+                          height: 180,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : items.isEmpty
+                          ? const _EmptyState(
+                              title: 'Belum ada tugas',
+                              subtitle: 'Tugas akan tampil di sini.',
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth > 820;
+                                final itemWidth = isWide
+                                    ? (constraints.maxWidth - 12) / 2
+                                    : constraints.maxWidth;
+                                return Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: items
+                                      .map(
+                                        (item) => SizedBox(
+                                          width: itemWidth,
+                                          child: _ListCard(
+                                            item: item,
+                                            isAdmin:
+                                                authService.role.value == 'admin',
+                                            onEdit: () => showTugasForm(
+                                              context,
+                                              controller,
+                                              classesController,
+                                              item: item,
+                                              fixedClassId: classId,
+                                              fixedClassName: className,
+                                            ),
+                                            onDelete: () =>
+                                                controller.deleteTugas(item.id),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _ListCard extends StatelessWidget {
   final AssignmentItem item;
   final bool isAdmin;
@@ -254,63 +643,106 @@ class _ListCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final deadlineLabel = DateFormat('dd MMM yyyy • HH:mm').format(item.deadline);
+    final deadlineLabel = DateFormat('dd MMM yyyy - HH:mm').format(item.deadline);
     final isExpired = item.deadline.isBefore(DateTime.now());
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF9FAFF), Color(0xFFF1F4FF)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        item.title,
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(item.instructions),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Kelas: ${item.className ?? '-'}',
-                        style: const TextStyle(color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isAdmin)
-                  Row(
-                    children: [
-                      IconButton(
-                        onPressed: onEdit,
-                        icon: const Icon(Icons.edit_rounded),
-                      ),
-                      IconButton(
-                        onPressed: onDelete,
-                        icon: const Icon(Icons.delete_rounded, color: Colors.red),
-                      ),
-                    ],
-                  ),
-              ],
+            Container(
+              width: 6,
+              height: 160,
+              decoration: BoxDecoration(
+                color: AppColors.navy,
+                borderRadius: BorderRadius.circular(18),
+              ),
             ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: [
-                _InfoPill(label: 'Deadline', value: deadlineLabel),
-                if (isExpired)
-                  const _InfoPill(
-                    label: 'Status',
-                    value: 'Lewat',
-                  ),
-                if (item.filePath != null && item.filePath!.isNotEmpty)
-                  _FilePill(path: item.filePath!),
-              ],
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.title,
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(item.instructions),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Kelas: ${item.className ?? '-'}',
+                                style: const TextStyle(
+                                    color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (isAdmin)
+                          Row(
+                            children: [
+                              _ActionIcon(
+                                icon: Icons.edit_rounded,
+                                color: AppColors.navy,
+                                onTap: onEdit,
+                              ),
+                              const SizedBox(width: 8),
+                              _ActionIcon(
+                                icon: Icons.delete_rounded,
+                                color: Colors.red,
+                                onTap: onDelete,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Wrap(
+                          spacing: 8,
+                          children: [
+                            _InfoPill(label: 'Deadline', value: deadlineLabel),
+                            if (isExpired)
+                              const _InfoPill(
+                                label: 'Status',
+                                value: 'Lewat',
+                              )
+                            else
+                              const _InfoPill(
+                                label: 'Status',
+                                value: 'Aktif',
+                              ),
+                          ],
+                        ),
+                        if (item.filePath != null && item.filePath!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: _AttachmentCard(path: item.filePath!),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -354,213 +786,104 @@ class _InfoPill extends StatelessWidget {
   }
 }
 
-class _FilePill extends StatelessWidget {
+class _AttachmentCard extends StatelessWidget {
   final String path;
 
-  const _FilePill({required this.path});
+  const _AttachmentCard({required this.path});
+
+  String _fileName(String value) {
+    final parts = value.split('/');
+    return parts.isEmpty ? value : parts.last;
+  }
 
   @override
   Widget build(BuildContext context) {
     final dataService = Get.find<DataService>();
-    return TextButton.icon(
-      style: TextButton.styleFrom(
-        backgroundColor: const Color(0xFFE8ECF5),
-        foregroundColor: AppColors.navy,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+    final fileName = _fileName(path);
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.border),
       ),
-      onPressed: () async {
-        final url = dataService.getPublicUrl(
-          bucket: 'assignments',
-          path: path,
-        );
-        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-      },
-      icon: const Icon(Icons.attach_file_rounded, size: 16),
-      label: const Text('File'),
-    );
-  }
-}
-
-Future<void> _openTugasForm(
-  BuildContext context,
-  TugasController controller,
-  ClassesController classesController, {
-  AssignmentItem? item,
-}) async {
-  final titleController = TextEditingController(text: item?.title ?? '');
-  final instructionController =
-      TextEditingController(text: item?.instructions ?? '');
-  DateTime? deadline = item?.deadline;
-  String? selectedClassId = item?.classId;
-  String? selectedFilePath = item?.filePath;
-  String? selectedFileName;
-  bool isUploading = false;
-
-  await Get.dialog(
-    StatefulBuilder(
-      builder: (context, setState) {
-        final classes = classesController.classes.toList();
-        return AlertDialog(
-          title: Text(item == null ? 'Tambah Tugas' : 'Ubah Tugas'),
-          content: SingleChildScrollView(
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE8ECF5),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.attach_file_rounded,
+                size: 16, color: AppColors.navy),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextField(
-                  controller: titleController,
-                  decoration: const InputDecoration(labelText: 'Judul'),
+                const Text(
+                  'Lampiran tersedia',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: instructionController,
-                  decoration: const InputDecoration(labelText: 'Perintah Tugas'),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedClassId,
-                  decoration: const InputDecoration(labelText: 'Kelas'),
-                  items: classes
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => selectedClassId = value),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        deadline == null
-                            ? 'Deadline belum dipilih'
-                            : DateFormat('dd MMM yyyy • HH:mm')
-                                .format(deadline!),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        final date = await showDatePicker(
-                          context: context,
-                          initialDate: deadline ?? DateTime.now(),
-                          firstDate: DateTime(2020),
-                          lastDate: DateTime(2035),
-                        );
-                        if (date == null) {
-                          return;
-                        }
-                        final time = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(
-                              deadline ?? DateTime.now()),
-                        );
-                        if (time == null) {
-                          return;
-                        }
-                        setState(() {
-                          deadline = DateTime(
-                            date.year,
-                            date.month,
-                            date.day,
-                            time.hour,
-                            time.minute,
-                          );
-                        });
-                      },
-                      child: const Text('Pilih Deadline'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        selectedFileName ??
-                            (selectedFilePath == null
-                                ? 'Belum ada file'
-                                : 'File tersimpan'),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: isUploading
-                          ? null
-                          : () async {
-                              final result = await openFile(
-                                acceptedTypeGroups: const [
-                                  XTypeGroup(
-                                    label: 'Dokumen',
-                                    extensions: ['pdf', 'docx', 'zip'],
-                                  ),
-                                ],
-                              );
-                              if (result == null) {
-                                return;
-                              }
-                              setState(() => isUploading = true);
-                              try {
-                                final path =
-                                    await controller.uploadTugasFile(result);
-                                if (path != null) {
-                                  setState(() {
-                                    selectedFilePath = path;
-                                    selectedFileName = result.name;
-                                  });
-                                }
-                              } catch (error) {
-                                Get.snackbar('Upload gagal', error.toString());
-                              } finally {
-                                setState(() => isUploading = false);
-                              }
-                            },
-                      child: Text(isUploading ? 'Upload...' : 'Upload File'),
-                    ),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  fileName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                final title = titleController.text.trim();
-                final instructions = instructionController.text.trim();
-                if (title.isEmpty || instructions.isEmpty || deadline == null) {
-                  Get.snackbar(
-                      'Gagal', 'Judul, perintah, dan deadline wajib diisi.');
-                  return;
-                }
-                if (item == null) {
-                  await controller.addTugas(
-                    title: title,
-                    instructions: instructions,
-                    deadline: deadline!,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
-                  );
-                } else {
-                  await controller.updateTugas(
-                    id: item.id,
-                    title: title,
-                    instructions: instructions,
-                    deadline: deadline!,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
-                  );
-                }
-                Get.back();
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
+          TextButton(
+            onPressed: () async {
+              final url = dataService.getPublicUrl(
+                bucket: 'assignments',
+                path: path,
+              );
+              await launchUrl(Uri.parse(url),
+                  mode: LaunchMode.externalApplication);
+            },
+            child: const Text('Lihat'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionIcon({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Ink(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8ECF5),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, size: 18, color: color),
+      ),
+    );
+  }
 }

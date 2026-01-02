@@ -1,0 +1,424 @@
+import 'dart:ui';
+
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+
+import '../../../routes/app_routes.dart';
+import '../../../theme/app_colors.dart';
+import '../../../widgets/responsive_center.dart';
+
+class WelcomeView extends StatefulWidget {
+  const WelcomeView({super.key});
+
+  @override
+  State<WelcomeView> createState() => _WelcomeViewState();
+}
+
+class _WelcomeViewState extends State<WelcomeView> {
+  final PageController _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          const _WelcomeBackground(),
+          SafeArea(
+            child: ResponsiveCenter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 14),
+
+                    // Top brand (tanpa tombol Lewati)
+                    const _TopBrand(),
+                    const SizedBox(height: 14),
+
+                    // HERO GLASS CARD
+                    Expanded(
+                      child: _GlassCard(
+                        child: Stack(
+                          children: [
+                            PageView(
+                              controller: _controller,
+                              onPageChanged: (value) {
+                                setState(() => _index = value);
+                              },
+                              children: const [
+                                _WelcomeSlide(
+                                  imageAsset: 'assets/welcome1.png',
+                                  badge: 'Akademik Terpadu',
+                                  title: 'PORTAL NUSA AKADEMI',
+                                  subtitle:
+                                      'Manajemen akademik terpadu untuk materi, tugas, dan penilaian.',
+                                ),
+                                _WelcomeSlide(
+                                  imageAsset: 'assets/welcome2.jpg',
+                                  badge: 'Real-time Dashboard',
+                                  title: 'PANTAU AKTIVITAS KELAS',
+                                  subtitle:
+                                      'Dashboard real-time untuk dosen dan mahasiswa.',
+                                ),
+                                _WelcomeSlide(
+                                  imageAsset: 'assets/welcome3.jpg',
+                                  badge: 'Rapi & Terstruktur',
+                                  title: 'SEMUA DATA TERATUR',
+                                  subtitle:
+                                      'Tugas, materi, dan nilai tersimpan rapi.',
+                                ),
+                              ],
+                            ),
+
+                            // Dots aja (tanpa tulisan geser)
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 14,
+                              child: _PageDots(activeIndex: _index, count: 3),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // CTA (cuma Masuk & Daftar, tanpa Lanjut)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () => Get.toNamed(Routes.login),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.navy,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: const Text(
+                              'Masuk',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () => Get.toNamed(Routes.register),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.navy,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              side: const BorderSide(
+                                color: AppColors.navy,
+                                width: 1.2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14),
+                              ),
+                            ),
+                            child: const Text(
+                              'Daftar',
+                              style: TextStyle(fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopBrand extends StatelessWidget {
+  const _TopBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.72),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AppColors.border),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1100142B),
+                blurRadius: 16,
+                offset: Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Row(
+            children: const [
+              Icon(Icons.school_rounded, color: AppColors.navy, size: 18),
+              SizedBox(width: 8),
+              Text(
+                'Portal Nusa Akademi',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.navy,
+                  letterSpacing: 0.3,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WelcomeBackground extends StatelessWidget {
+  const _WelcomeBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF6F8FF), Color(0xFFEAF0FF)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ),
+      ),
+      child: Stack(
+        children: const [
+          Positioned(
+            top: -90,
+            right: -50,
+            child: _GlassCircle(size: 240, color: Color(0xFFCFE0FF)),
+          ),
+          Positioned(
+            top: 120,
+            left: -70,
+            child: _GlassCircle(size: 180, color: Color(0xFFE7EDFF)),
+          ),
+          Positioned(
+            bottom: -70,
+            left: -40,
+            child: _GlassCircle(size: 210, color: Color(0xFFD9E6FF)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlassCard extends StatelessWidget {
+  final Widget child;
+  const _GlassCard({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.58),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white.withOpacity(0.45)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x1A00142B),
+                blurRadius: 26,
+                offset: Offset(0, 18),
+              ),
+            ],
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class _WelcomeSlide extends StatelessWidget {
+  final String imageAsset;
+  final String badge;
+  final String title;
+  final String subtitle;
+
+  const _WelcomeSlide({
+    required this.imageAsset,
+    required this.badge,
+    required this.title,
+    required this.subtitle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 52),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // HERO IMAGE (lebih keren: frame + shadow + dekor)
+          Expanded(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 10,
+                  left: 18,
+                  right: 18,
+                  bottom: 14,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF0F172A).withOpacity(0.10),
+                          Colors.white.withOpacity(0.10),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.center,
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.72),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: Colors.white.withOpacity(0.65)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x1600142B),
+                          blurRadius: 26,
+                          offset: Offset(0, 18),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.asset(imageAsset, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 14),
+
+          // Badge kecil biar ada “detail”
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.75),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Text(
+              badge,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 10),
+
+          Text(
+            title,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              color: AppColors.navy,
+              fontSize: 20,
+              letterSpacing: 0.7,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              height: 1.45,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PageDots extends StatelessWidget {
+  final int activeIndex;
+  final int count;
+
+  const _PageDots({required this.activeIndex, required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(
+        count,
+        (index) => AnimatedContainer(
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          height: 8,
+          width: index == activeIndex ? 26 : 8,
+          decoration: BoxDecoration(
+            color: index == activeIndex
+                ? AppColors.navy
+                : const Color(0xFFC9D4EE),
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _GlassCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _GlassCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.55),
+      ),
+    );
+  }
+}

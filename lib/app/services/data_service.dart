@@ -24,6 +24,10 @@ class DataService {
     await _client.from('classes').insert({'name': name});
   }
 
+  Future<void> updateClass(String id, String name) async {
+    await _client.from('classes').update({'name': name}).eq('id', id);
+  }
+
   Future<void> deleteClass(String id) async {
     await _client.from('classes').delete().eq('id', id);
   }

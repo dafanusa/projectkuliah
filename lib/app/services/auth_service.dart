@@ -46,8 +46,10 @@ class AuthService extends GetxService {
         role.value = '';
         name.value = '';
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (Get.currentRoute != Routes.login) {
-            Get.offAllNamed(Routes.login);
+          if (Get.currentRoute != Routes.welcome &&
+              Get.currentRoute != Routes.login &&
+              Get.currentRoute != Routes.register) {
+            Get.offAllNamed(Routes.welcome);
           }
         });
       }

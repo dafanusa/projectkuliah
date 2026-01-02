@@ -29,12 +29,11 @@ class ProjectKuliahApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Get.find<AuthService>();
-    final initialRoute =
-        authService.isLoggedIn ? Routes.main : Routes.login;
+    final initialRoute = Routes.splash;
 
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Manajemen Kegiatan Kuliah',
+      title: 'Portal Nusa Akademi',
       theme: AppTheme.light,
       initialRoute: initialRoute,
       getPages: AppPages.routes,

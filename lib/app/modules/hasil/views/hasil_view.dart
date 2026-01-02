@@ -4,6 +4,9 @@ import 'package:get/get.dart';
 import '../../../models/result_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/admin_forms.dart';
+import '../../../widgets/responsive_center.dart';
+import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
 import '../controllers/hasil_controller.dart';
 
@@ -17,67 +20,138 @@ class HasilView extends GetView<HasilController> {
 
     return Obx(() {
       final items = controller.hasil.toList();
+      final isLoading = controller.isLoading.value;
+      final classes = classesController.classes.toList();
       final totalTerkumpul =
           items.fold<int>(0, (sum, item) => sum + item.collected);
-      final totalBelum =
-          items.fold<int>(0, (sum, item) => sum + item.missing);
-      final totalDinilai =
-          items.fold<int>(0, (sum, item) => sum + item.graded);
+      final totalBelum = items.fold<int>(0, (sum, item) => sum + item.missing);
+      final totalDinilai = items.fold<int>(0, (sum, item) => sum + item.graded);
+      final hasUnassigned =
+          items.any((item) => item.classId == null || item.classId!.isEmpty);
+      final countByClassId = <String, int>{};
+      for (final item in items) {
+        final classId = item.classId ?? '';
+        countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
 
-      return ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Obx(() {
-            if (authService.role.value != 'admin') {
-              return const SizedBox.shrink();
-            }
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: _AdminPanel(
-                title: 'Kelola Penilaian',
-                subtitle: 'Input nilai dan finalisasi hasil tugas.',
-                actionLabel: 'Tambah Hasil',
-                onTap: () => _openHasilForm(
-                  context,
-                  controller,
-                  classesController,
+      return RefreshIndicator(
+        onRefresh: controller.loadAll,
+        child: ResponsiveCenter(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (authService.role.value == 'admin')
+                Reveal(
+                  delayMs: 50,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Penilaian',
+                      subtitle: 'Input nilai dan finalisasi hasil tugas.',
+                      actionLabel: 'Tambah Hasil',
+                      onTap: () => showHasilForm(
+                        context,
+                        controller,
+                        classesController,
+                      ),
+                    ),
+                  ),
+                ),
+              Reveal(
+                delayMs: 120,
+                child: _PageHeader(
+                  title: 'Hasil Tugas',
+                  subtitle: 'Ringkasan status pengumpulan dan penilaian.',
+                  stats: [
+                    _HeaderStat(
+                      label: 'Terkumpul',
+                      value: totalTerkumpul.toString(),
+                    ),
+                    _HeaderStat(label: 'Belum', value: totalBelum.toString()),
+                    _HeaderStat(
+                      label: 'Dinilai',
+                      value: totalDinilai.toString(),
+                    ),
+                  ],
                 ),
               ),
-            );
-          }),
-          _PageHeader(
-            title: 'Hasil Tugas',
-            subtitle: 'Ringkasan status pengumpulan dan penilaian.',
-            stats: [
-              _HeaderStat(label: 'Terkumpul', value: totalTerkumpul.toString()),
-              _HeaderStat(label: 'Belum', value: totalBelum.toString()),
-              _HeaderStat(label: 'Dinilai', value: totalDinilai.toString()),
+              const SizedBox(height: 16),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: isLoading && items.isEmpty && classes.isEmpty
+                    ? const SizedBox(
+                        height: 180,
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    : items.isEmpty && classes.isEmpty
+                        ? const _EmptyState(
+                            title: 'Belum ada hasil tugas',
+                            subtitle: 'Admin bisa menambahkan rekap hasil tugas.',
+                          )
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final isWide = constraints.maxWidth > 720;
+                              final itemWidth = isWide
+                                  ? (constraints.maxWidth - 12) / 2
+                                  : constraints.maxWidth;
+                              final tiles = <Widget>[];
+                              for (final entry in classes.asMap().entries) {
+                                final classItem = entry.value;
+                                final count =
+                                    countByClassId[classItem.id] ?? 0;
+                                tiles.add(
+                                  Reveal(
+                                    delayMs: 140 + entry.key * 70,
+                                    child: SizedBox(
+                                      width: itemWidth,
+                                      child: _ClassCard(
+                                        title: classItem.name,
+                                        subtitle: '$count hasil',
+                                        icon: Icons.fact_check_rounded,
+                                        onTap: () => Get.to(
+                                          () => HasilClassView(
+                                            classId: classItem.id,
+                                            className: classItem.name,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              if (hasUnassigned) {
+                                tiles.add(
+                                  Reveal(
+                                    delayMs: 140 + tiles.length * 70,
+                                    child: SizedBox(
+                                      width: itemWidth,
+                                      child: _ClassCard(
+                                        title: 'Tanpa Kelas',
+                                        subtitle:
+                                            '${countByClassId[''] ?? 0} hasil',
+                                        icon: Icons.folder_off_rounded,
+                                        onTap: () => Get.to(
+                                          () => const HasilClassView(
+                                            classId: null,
+                                            className: 'Tanpa Kelas',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Wrap(
+                                spacing: 12,
+                                runSpacing: 12,
+                                children: tiles,
+                              );
+                            },
+                          ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
-          if (items.isEmpty)
-            const _EmptyState(
-              title: 'Belum ada hasil tugas',
-              subtitle: 'Admin bisa menambahkan rekap hasil tugas.',
-            )
-          else
-            ...items.map(
-              (item) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ResultCard(
-                  item: item,
-                  isAdmin: authService.role.value == 'admin',
-                  onEdit: () => _openHasilForm(
-                    context,
-                    controller,
-                    classesController,
-                    item: item,
-                  ),
-                  onDelete: () => controller.deleteResult(item.id),
-                ),
-              ),
-            ),
-        ],
+        ),
       );
     });
   }
@@ -237,6 +311,187 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+class _ClassCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _ClassCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: AppColors.navy),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class HasilClassView extends GetView<HasilController> {
+  final String? classId;
+  final String className;
+
+  const HasilClassView({
+    super.key,
+    required this.classId,
+    required this.className,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Hasil $className')),
+      body: Obx(() {
+        final items = controller.hasil.where((item) {
+          if (classId == null || classId!.isEmpty) {
+            return item.classId == null || item.classId!.isEmpty;
+          }
+          return item.classId == classId;
+        }).toList();
+        final isLoading = controller.isLoading.value;
+        final totalTerkumpul =
+            items.fold<int>(0, (sum, item) => sum + item.collected);
+        final totalBelum = items.fold<int>(0, (sum, item) => sum + item.missing);
+        final totalDinilai = items.fold<int>(0, (sum, item) => sum + item.graded);
+
+        return RefreshIndicator(
+          onRefresh: controller.loadAll,
+          child: ResponsiveCenter(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                if (authService.role.value == 'admin')
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Penilaian',
+                      subtitle: 'Atur hasil untuk $className.',
+                      actionLabel: 'Tambah Hasil',
+                      onTap: () => showHasilForm(
+                        context,
+                        controller,
+                        classesController,
+                        fixedClassId: classId,
+                        fixedClassName: className,
+                      ),
+                    ),
+                  ),
+                _PageHeader(
+                  title: 'Hasil $className',
+                  subtitle: 'Ringkasan status pengumpulan dan penilaian.',
+                  stats: [
+                    _HeaderStat(
+                      label: 'Terkumpul',
+                      value: totalTerkumpul.toString(),
+                    ),
+                    _HeaderStat(label: 'Belum', value: totalBelum.toString()),
+                    _HeaderStat(
+                      label: 'Dinilai',
+                      value: totalDinilai.toString(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: isLoading && items.isEmpty
+                      ? const SizedBox(
+                          height: 180,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : items.isEmpty
+                          ? const _EmptyState(
+                              title: 'Belum ada hasil tugas',
+                              subtitle: 'Data akan tampil di sini.',
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final isWide = constraints.maxWidth > 820;
+                                final itemWidth = isWide
+                                    ? (constraints.maxWidth - 12) / 2
+                                    : constraints.maxWidth;
+                                return Wrap(
+                                  spacing: 12,
+                                  runSpacing: 12,
+                                  children: items
+                                      .map(
+                                        (item) => SizedBox(
+                                          width: itemWidth,
+                                          child: _ResultCard(
+                                            item: item,
+                                            isAdmin:
+                                                authService.role.value == 'admin',
+                                            onEdit: () => showHasilForm(
+                                              context,
+                                              controller,
+                                              classesController,
+                                              item: item,
+                                              fixedClassId: classId,
+                                              fixedClassName: className,
+                                            ),
+                                            onDelete: () =>
+                                                controller.deleteResult(item.id),
+                                          ),
+                                        ),
+                                      )
+                                      .toList(),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _ResultCard extends StatelessWidget {
   final ResultItem item;
   final bool isAdmin;
@@ -341,122 +596,4 @@ class _InfoChip extends StatelessWidget {
       ),
     );
   }
-}
-
-Future<void> _openHasilForm(
-  BuildContext context,
-  HasilController controller,
-  ClassesController classesController, {
-  ResultItem? item,
-}) async {
-  final collectedController =
-      TextEditingController(text: item?.collected.toString() ?? '');
-  final missingController =
-      TextEditingController(text: item?.missing.toString() ?? '');
-  final gradedController =
-      TextEditingController(text: item?.graded.toString() ?? '');
-  String? selectedClassId = item?.classId;
-  String? selectedAssignmentId = item?.assignmentId;
-
-  await Get.dialog(
-    StatefulBuilder(
-      builder: (context, setState) {
-        final classes = classesController.classes.toList();
-        final assignments = controller.assignments.toList();
-        return AlertDialog(
-          title: Text(item == null ? 'Tambah Hasil' : 'Ubah Hasil'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: selectedAssignmentId,
-                  decoration: const InputDecoration(labelText: 'Tugas'),
-                  items: assignments
-                      .map(
-                        (assignment) => DropdownMenuItem(
-                          value: assignment.id,
-                          child: Text(assignment.title),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) =>
-                      setState(() => selectedAssignmentId = value),
-                ),
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  value: selectedClassId,
-                  decoration: const InputDecoration(labelText: 'Kelas'),
-                  items: classes
-                      .map(
-                        (c) => DropdownMenuItem(
-                          value: c.id,
-                          child: Text(c.name),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) => setState(() => selectedClassId = value),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: collectedController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Terkumpul'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: missingController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Belum'),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: gradedController,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Dinilai'),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Get.back(),
-              child: const Text('Batal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (selectedAssignmentId == null) {
-                  Get.snackbar('Gagal', 'Tugas wajib dipilih.');
-                  return;
-                }
-                final collected = int.tryParse(collectedController.text) ?? 0;
-                final missing = int.tryParse(missingController.text) ?? 0;
-                final graded = int.tryParse(gradedController.text) ?? 0;
-                if (item == null) {
-                  await controller.addResult(
-                    assignmentId: selectedAssignmentId!,
-                    classId: selectedClassId,
-                    collected: collected,
-                    missing: missing,
-                    graded: graded,
-                  );
-                } else {
-                  await controller.updateResult(
-                    id: item.id,
-                    assignmentId: selectedAssignmentId!,
-                    classId: selectedClassId,
-                    collected: collected,
-                    missing: missing,
-                    graded: graded,
-                  );
-                }
-                Get.back();
-              },
-              child: const Text('Simpan'),
-            ),
-          ],
-        );
-      },
-    ),
-  );
 }

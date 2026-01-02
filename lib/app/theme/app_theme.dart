@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -20,22 +21,22 @@ class AppTheme {
       elevation: 0,
     ),
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-      backgroundColor: Colors.white,
-      selectedItemColor: AppColors.navy,
-      unselectedItemColor: Color(0xFF7A879A),
+      backgroundColor: AppColors.navy,
+      selectedItemColor: Colors.white,
+      unselectedItemColor: Color(0xDDFFFFFF),
       showUnselectedLabels: true,
       type: BottomNavigationBarType.fixed,
     ),
-    textTheme: const TextTheme(
-      headlineSmall: TextStyle(
+    textTheme: GoogleFonts.spaceGroteskTextTheme().copyWith(
+      headlineSmall: const TextStyle(
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
       ),
-      titleMedium: TextStyle(
+      titleMedium: const TextStyle(
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
-      bodyMedium: TextStyle(color: AppColors.textSecondary),
+      bodyMedium: const TextStyle(color: AppColors.textSecondary),
     ),
   );
 }

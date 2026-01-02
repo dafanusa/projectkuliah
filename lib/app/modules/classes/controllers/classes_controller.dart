@@ -36,4 +36,12 @@ class ClassesController extends GetxController {
     await _dataService.deleteClass(id);
     await loadClasses();
   }
+
+  Future<void> updateClass(String id, String name) async {
+    if (name.trim().isEmpty) {
+      return;
+    }
+    await _dataService.updateClass(id, name.trim());
+    await loadClasses();
+  }
 }

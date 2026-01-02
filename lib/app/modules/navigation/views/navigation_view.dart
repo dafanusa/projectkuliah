@@ -7,6 +7,7 @@ import 'package:mvbtummaplikasi/app/modules/tugas/views/tugas_view.dart';
 import 'package:mvbtummaplikasi/app/modules/hasil/views/hasil_view.dart';
 import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
 import 'package:mvbtummaplikasi/app/modules/profile/views/profile_view.dart';
+import 'package:mvbtummaplikasi/app/theme/app_colors.dart';
 import '../controllers/navigation_controller.dart';
 
 class NavigationView extends GetView<NavigationController> {
@@ -36,7 +37,25 @@ class NavigationView extends GetView<NavigationController> {
       final index = controller.currentIndex.value;
       return Scaffold(
         extendBody: true,
-        appBar: AppBar(title: Text(items[index].label)),
+        appBar: AppBar(
+          title: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween<Offset>(
+                  begin: const Offset(0.08, 0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            ),
+            child: Text(
+              items[index].label,
+              key: ValueKey(items[index].label),
+            ),
+          ),
+        ),
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -46,9 +65,19 @@ class NavigationView extends GetView<NavigationController> {
             ),
           ),
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            switchInCurve: Curves.easeOut,
-            switchOutCurve: Curves.easeIn,
+            duration: const Duration(milliseconds: 280),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) {
+              final offset = Tween<Offset>(
+                begin: const Offset(0.03, 0),
+                end: Offset.zero,
+              ).animate(animation);
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: offset, child: child),
+              );
+            },
             child: IndexedStack(
               key: ValueKey(index),
               index: index,
@@ -60,7 +89,7 @@ class NavigationView extends GetView<NavigationController> {
           minimum: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.navy,
               borderRadius: BorderRadius.circular(28),
               boxShadow: const [
                 BoxShadow(
@@ -73,11 +102,26 @@ class NavigationView extends GetView<NavigationController> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(28),
               child: BottomNavigationBar(
+                backgroundColor: AppColors.navy,
                 currentIndex: index,
+                selectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                ),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                ),
                 items: items
                     .map(
                       (item) => BottomNavigationBarItem(
-                        icon: Icon(item.icon),
+                        icon: Icon(item.icon, color: Colors.white),
+                        activeIcon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(item.icon, color: AppColors.navy),
+                        ),
                         label: item.label,
                       ),
                     )

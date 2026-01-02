@@ -19,9 +19,21 @@ import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
 import 'package:mvbtummaplikasi/app/modules/profile/bindings/profile_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/profile/views/profile_view.dart';
 import 'app_routes.dart';
+import 'package:mvbtummaplikasi/app/modules/splash/bindings/splash_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/splash/views/splash_view.dart';
+import 'package:mvbtummaplikasi/app/modules/welcome/views/welcome_view.dart';
 
 class AppPages {
   static final routes = [
+    GetPage(
+      name: Routes.splash,
+      page: () => const SplashView(),
+      binding: SplashBinding(),
+    ),
+    GetPage(
+      name: Routes.welcome,
+      page: () => const WelcomeView(),
+    ),
     GetPage(
       name: Routes.login,
       page: () => const LoginView(),

@@ -1,6 +1,8 @@
 import 'package:get/get.dart';
 
 class Routes {
+  static const splash = '/splash';
+  static const welcome = '/welcome';
   static const main = '/';
   static const login = '/login';
   static const register = '/register';

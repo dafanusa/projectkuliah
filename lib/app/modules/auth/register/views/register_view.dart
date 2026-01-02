@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../../theme/app_colors.dart';
+import '../../../../widgets/reveal.dart';
+import '../../../../widgets/responsive_center.dart';
 import '../controllers/register_controller.dart';
 
 class RegisterView extends GetView<RegisterController> {
@@ -10,42 +12,113 @@ class RegisterView extends GetView<RegisterController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF4F6FB), Color(0xFFE9EEF8)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 8),
-                const _HeroBanner(
-                  title: 'Buat Akun Baru',
-                  subtitle: 'Daftarkan diri untuk mengelola kelas.',
-                ),
-                const SizedBox(height: 20),
-                _FormCard(controller: controller),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Sudah punya akun?'),
-                    TextButton(
-                      onPressed: Get.back,
-                      child: const Text('Masuk'),
+      body: Stack(
+        children: [
+          const _AuthBackground(),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: ResponsiveCenter(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 20),
+                          const Reveal(
+                            delayMs: 80,
+                            child: _HeroBanner(
+                              title: 'Buat Akun Baru',
+                              subtitle: 'Daftarkan diri untuk mengelola kelas.',
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Reveal(
+                            delayMs: 140,
+                            child: _FormCard(controller: controller),
+                          ),
+                          const SizedBox(height: 16),
+                          Reveal(
+                            delayMs: 220,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Text('Sudah punya akun?'),
+                                TextButton(
+                                  onPressed: Get.back,
+                                  child: const Text('Masuk'),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                );
+              },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthBackground extends StatelessWidget {
+  const _AuthBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFFF4F6FB), Color(0xFFE9EEF8)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
         ),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -80,
+            right: -50,
+            child: _GlowCircle(
+              size: 200,
+              color: Color(0xFFDCE6FF),
+            ),
+          ),
+          Positioned(
+            bottom: -60,
+            left: -40,
+            child: _GlowCircle(
+              size: 180,
+              color: Color(0xFFE1E9FB),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GlowCircle extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _GlowCircle({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(0.6),
       ),
     );
   }
@@ -68,10 +141,39 @@ class _HeroBanner extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2600142B),
+            blurRadius: 20,
+            offset: Offset(0, 10),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.school_rounded, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'Portal Nusa Akademi',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
           Text(
             title,
             style: const TextStyle(
@@ -84,6 +186,16 @@ class _HeroBanner extends StatelessWidget {
           Text(
             subtitle,
             style: const TextStyle(color: Color(0xFFD6E0F5)),
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              'assets/welcome3.jpg',
+              height: 120,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           ),
         ],
       ),
@@ -155,6 +267,10 @@ class _FormCard extends StatelessWidget {
                   onPressed: controller.isLoading.value
                       ? null
                       : controller.register,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.navy,
+                    foregroundColor: Colors.white,
+                  ),
                   child: controller.isLoading.value
                       ? const SizedBox(
                           height: 18,
@@ -166,24 +282,13 @@ class _FormCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFE8ECF5),
-                borderRadius: BorderRadius.circular(12),
+            OutlinedButton.icon(
+              onPressed: () => Get.snackbar(
+                'Google Register',
+                'Fitur daftar Google belum diaktifkan.',
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.info_outline_rounded, color: AppColors.navy),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Role ditentukan admin. Setelah berhasil, diarahkan ke login.',
-                      style: TextStyle(color: AppColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
+              icon: const Icon(Icons.g_mobiledata_rounded),
+              label: const Text('Daftar dengan Google'),
             ),
           ],
         ),
