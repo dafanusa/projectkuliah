@@ -14,6 +14,8 @@ import '../../../widgets/admin_forms.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
+import '../../hasil/controllers/hasil_controller.dart';
+import '../../hasil/views/hasil_view.dart';
 import '../controllers/tugas_controller.dart';
 
 class TugasView extends GetView<TugasController> {
@@ -21,9 +23,46 @@ class TugasView extends GetView<TugasController> {
 
   @override
   Widget build(BuildContext context) {
+    final hasilController = Get.find<HasilController>();
+    return Obx(() {
+      final tabIndex = controller.tabIndex.value;
+      Widget buildSwitcher() {
+        return _TabSwitcher(
+          currentIndex: tabIndex,
+          onChanged: (index) {
+            controller.tabIndex.value = index;
+            if (index == 1) {
+              hasilController.loadAll();
+            }
+          },
+        );
+      }
+      return Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: tabIndex,
+              children: [
+                _TugasTab(headerBuilder: buildSwitcher),
+                HasilView(headerBuilder: buildSwitcher),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _TugasTab extends GetView<TugasController> {
+  final Widget Function()? headerBuilder;
+
+  const _TugasTab({this.headerBuilder});
+
+  @override
+  Widget build(BuildContext context) {
     final authService = Get.find<AuthService>();
     final classesController = Get.find<ClassesController>();
-    final dataService = Get.find<DataService>();
 
     return Obx(() {
       final items = controller.tugas.toList();
@@ -75,6 +114,13 @@ class TugasView extends GetView<TugasController> {
                   ],
                 ),
               ),
+              if (headerBuilder != null) ...[
+                const SizedBox(height: 12),
+                ResponsiveCenter(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: headerBuilder!(),
+                ),
+              ],
               const SizedBox(height: 16),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
@@ -225,6 +271,80 @@ class _HeaderStat extends StatelessWidget {
       child: Text(
         '$label: $value',
         style: const TextStyle(color: Colors.white, fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _TabSwitcher extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onChanged;
+
+  const _TabSwitcher({
+    required this.currentIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _TabButton(
+            label: 'Tugas',
+            isActive: currentIndex == 0,
+            onTap: () => onChanged(0),
+          ),
+          const SizedBox(width: 6),
+          _TabButton(
+            label: 'Hasil',
+            isActive: currentIndex == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.navy : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

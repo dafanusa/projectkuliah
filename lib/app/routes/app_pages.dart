@@ -10,10 +10,10 @@ import 'package:mvbtummaplikasi/app/modules/home/bindings/home_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/home/views/home_view.dart';
 import 'package:mvbtummaplikasi/app/modules/materi/bindings/materi_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/materi/views/materi_view.dart';
+import 'package:mvbtummaplikasi/app/modules/karya/bindings/karya_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/karya/views/karya_view.dart';
 import 'package:mvbtummaplikasi/app/modules/tugas/bindings/tugas_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/tugas/views/tugas_view.dart';
-import 'package:mvbtummaplikasi/app/modules/hasil/bindings/hasil_binding.dart';
-import 'package:mvbtummaplikasi/app/modules/hasil/views/hasil_view.dart';
 import 'package:mvbtummaplikasi/app/modules/nilai/bindings/nilai_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
 import 'package:mvbtummaplikasi/app/modules/profile/bindings/profile_binding.dart';
@@ -65,14 +65,14 @@ class AppPages {
       binding: TugasBinding(),
     ),
     GetPage(
-      name: Routes.hasil,
-      page: () => const HasilView(),
-      binding: HasilBinding(),
-    ),
-    GetPage(
       name: Routes.nilai,
       page: () => const NilaiView(),
       binding: NilaiBinding(),
+    ),
+    GetPage(
+      name: Routes.karya,
+      page: () => const KaryaView(),
+      binding: KaryaBinding(),
     ),
     GetPage(
       name: Routes.profile,

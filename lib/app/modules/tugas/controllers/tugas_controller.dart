@@ -15,6 +15,7 @@ class TugasController extends GetxController {
   final tugas = <AssignmentItem>[].obs;
   final isLoading = false.obs;
   final isSubmitting = false.obs;
+  final tabIndex = 0.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 

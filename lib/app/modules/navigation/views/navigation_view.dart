@@ -4,10 +4,11 @@ import 'package:get/get.dart';
 import 'package:mvbtummaplikasi/app/modules/home/views/home_view.dart';
 import 'package:mvbtummaplikasi/app/modules/materi/views/materi_view.dart';
 import 'package:mvbtummaplikasi/app/modules/tugas/views/tugas_view.dart';
-import 'package:mvbtummaplikasi/app/modules/hasil/views/hasil_view.dart';
 import 'package:mvbtummaplikasi/app/modules/nilai/views/nilai_view.dart';
+import 'package:mvbtummaplikasi/app/modules/karya/views/karya_view.dart';
 import 'package:mvbtummaplikasi/app/modules/profile/views/profile_view.dart';
 import 'package:mvbtummaplikasi/app/theme/app_colors.dart';
+import '../../../services/auth_service.dart';
 import '../controllers/navigation_controller.dart';
 
 class NavigationView extends GetView<NavigationController> {
@@ -19,8 +20,8 @@ class NavigationView extends GetView<NavigationController> {
       _NavItem('Home', Icons.dashboard_rounded),
       _NavItem('Materi', Icons.menu_book_rounded),
       _NavItem('Tugas', Icons.assignment_rounded),
-      _NavItem('Hasil', Icons.fact_check_rounded),
       _NavItem('Nilai', Icons.score_rounded),
+      _NavItem('Karya', Icons.auto_stories_rounded),
       _NavItem('Profil', Icons.person_rounded),
     ];
 
@@ -28,18 +29,27 @@ class NavigationView extends GetView<NavigationController> {
       const HomeView(),
       const MateriView(),
       const TugasView(),
-      const HasilView(),
       const NilaiView(),
+      const KaryaView(),
       const ProfileView(),
     ];
 
     return Obx(() {
       final index = controller.currentIndex.value;
+      final authService = Get.find<AuthService>();
+      final displayName = authService.name.value.isEmpty
+          ? (authService.role.value == 'admin' ? 'Admin' : 'Mahasiswa')
+          : authService.name.value;
+      final titleText = index == 0
+          ? 'Selamat datang di Aplikasi \nPortalNusaAkademi, $displayName'
+          : items[index].label;
       final bottomInset = MediaQuery.of(context).padding.bottom;
       const navHeight = 84.0;
       return Scaffold(
         extendBody: true,
         appBar: AppBar(
+          toolbarHeight: 86,
+          centerTitle: index != 0,
           title: AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             transitionBuilder: (child, animation) => FadeTransition(
@@ -53,8 +63,16 @@ class NavigationView extends GetView<NavigationController> {
               ),
             ),
             child: Text(
-              items[index].label,
-              key: ValueKey(items[index].label),
+              titleText,
+              key: ValueKey(titleText),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 20,
+                height: 1.2,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
             ),
           ),
         ),

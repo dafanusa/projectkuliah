@@ -50,13 +50,20 @@ class ProfileView extends GetView<ProfileController> {
             const SizedBox(height: 16),
             Reveal(
               delayMs: 200,
-              child: Card(
-                child: ListTile(
-                  leading:
-                      const Icon(Icons.logout_rounded, color: AppColors.navy),
-                  title: const Text('Keluar'),
-                  subtitle: const Text('Akhiri sesi dan kembali ke login.'),
-                  onTap: authService.signOut,
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: authService.signOut,
+                  icon: const Icon(Icons.logout_rounded),
+                  label: const Text('Keluar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
                 ),
               ),
             ),

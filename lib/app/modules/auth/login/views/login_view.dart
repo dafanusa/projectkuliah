@@ -192,7 +192,7 @@ class _HeroBanner extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: Image.asset(
-              'assets/welcome2.jpg',
+              'assets/login.jpg',
               height: 120,
               width: double.infinity,
               fit: BoxFit.cover,

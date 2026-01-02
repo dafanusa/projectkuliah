@@ -9,7 +9,7 @@ class Routes {
   static const home = '/home';
   static const materi = '/materi';
   static const tugas = '/tugas';
-  static const hasil = '/hasil';
   static const nilai = '/nilai';
+  static const karya = '/karya';
   static const profile = '/profile';
 }

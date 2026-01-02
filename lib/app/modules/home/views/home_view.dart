@@ -173,7 +173,10 @@ class HomeView extends GetView<HomeController> {
                           title: 'Kelola Hasil',
                           subtitle: 'Pantau pengumpulan',
                           icon: Icons.fact_check_rounded,
-                          onTap: () => navController.changeIndex(3),
+                          onTap: () {
+                            tugasController.tabIndex.value = 1;
+                            navController.changeIndex(2);
+                          },
                         ),
                       ),
                       SizedBox(
@@ -262,14 +265,20 @@ class HomeView extends GetView<HomeController> {
             _SectionHeader(
               title: 'Ringkasan Pengumpulan',
               actionLabel: 'Lihat Hasil',
-              onAction: () => navController.changeIndex(3),
+              onAction: () {
+                tugasController.tabIndex.value = 1;
+                navController.changeIndex(2);
+              },
             ),
             const SizedBox(height: 12),
             _ScoreSummary(
               total: submissions.length,
               onTime: totalOnTime,
               late: totalLate,
-              onTap: () => navController.changeIndex(3),
+              onTap: () {
+                tugasController.tabIndex.value = 1;
+                navController.changeIndex(2);
+              },
             ),
             const SizedBox(height: 40),
           ],
@@ -342,13 +351,13 @@ class _DashboardHero extends StatelessWidget {
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
-              fontSize: 20,
+              fontSize: 18,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(color: Color(0xFFD6E0F5), fontSize: 13),
+            style: const TextStyle(color: Color(0xFFD6E0F5), fontSize: 12),
           ),
           const SizedBox(height: 16),
           Row(
@@ -359,7 +368,7 @@ class _DashboardHero extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               const _HeroChip(
-                label: 'Supabase Live',
+                label: 'Database Systems',
                 icon: Icons.cloud_done_rounded,
               ),
             ],

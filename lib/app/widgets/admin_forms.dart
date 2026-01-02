@@ -9,6 +9,7 @@ import '../models/material_item.dart';
 import '../models/lecturer_work_item.dart';
 import '../modules/classes/controllers/classes_controller.dart';
 import '../modules/materi/controllers/materi_controller.dart';
+import '../modules/karya/controllers/karya_controller.dart';
 import '../modules/nilai/controllers/nilai_controller.dart';
 import '../modules/tugas/controllers/tugas_controller.dart';
 import '../theme/app_colors.dart';
@@ -428,7 +429,7 @@ Future<void> showTugasForm(
 
 Future<void> showKaryaForm(
   BuildContext context,
-  MateriController controller, {
+  KaryaController controller, {
   LecturerWorkItem? item,
 }) async {
   final titleController = TextEditingController(text: item?.title ?? '');

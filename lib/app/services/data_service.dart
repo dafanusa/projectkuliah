@@ -310,6 +310,10 @@ class DataService {
   }
 
   Future<String?> uploadAvatar({required XFile file}) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null || userId.isEmpty) {
+      throw Exception('Sesi login tidak ditemukan.');
+    }
     final name = file.name;
     final extension = name.contains('.')
         ? name.split('.').last.toLowerCase()
@@ -326,7 +330,7 @@ class DataService {
 
     final safeName = name.replaceAll(' ', '_');
     final path =
-        'profiles/${DateTime.now().millisecondsSinceEpoch}_$safeName';
+        'profiles/$userId/${DateTime.now().millisecondsSinceEpoch}_$safeName';
 
     if (kIsWeb) {
       final bytes = await file.readAsBytes();

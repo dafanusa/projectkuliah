@@ -13,7 +13,9 @@ import '../../classes/controllers/classes_controller.dart';
 import '../controllers/hasil_controller.dart';
 
 class HasilView extends StatefulWidget {
-  const HasilView({super.key});
+  final Widget Function()? headerBuilder;
+
+  const HasilView({super.key, this.headerBuilder});
 
   @override
   State<HasilView> createState() => _HasilViewState();
@@ -73,6 +75,13 @@ class _HasilViewState extends State<HasilView> {
                   ],
                 ),
               ),
+              if (widget.headerBuilder != null) ...[
+                const SizedBox(height: 12),
+                ResponsiveCenter(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: widget.headerBuilder!(),
+                ),
+              ],
               const SizedBox(height: 16),
               if (!isAdmin) ...[
                 _IdentityCard(authService: authService),

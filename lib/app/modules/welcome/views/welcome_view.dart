@@ -54,32 +54,25 @@ class _WelcomeViewState extends State<WelcomeView> {
                               },
                               children: const [
                                 _WelcomeSlide(
-                                  imageAsset: 'assets/dosen.jpg',
-                                  badge: 'Dosen Pembimbing',
-                                  title: 'Dr. Yahya Nusa, S.E., M.Si., CTT',
+                                  imageAsset: 'assets/screen1.jpg',
+                                  badge: 'Dosen STIE Jambatan Bulan',
+                                  title: 'Dr. Yahya Nusa, S.E., \n M.Si., CTT',
                                   subtitle:
-                                      'Portal personal untuk terhubung dengan karya dan materi dosen.',
+                                      'Portal personal untuk terhubung dengan \n karya penelitian dan materi dosen.',
                                 ),
                                 _WelcomeSlide(
-                                  imageAsset: 'assets/welcome1.png',
+                                  imageAsset: 'assets/screen2.jpg',
                                   badge: 'Akademik Terpadu',
-                                  title: 'PORTAL NUSA AKADEMI',
+                                  title: 'Manajemen Materi, Tugas \n dan Penilaian Akademik',
                                   subtitle:
-                                      'Manajemen akademik terpadu untuk materi, tugas, dan penilaian.',
+                                      'Manajemen akademik terpadu untuk materi perkuliahan, tugas, dan penilaian akademik.',
                                 ),
                                 _WelcomeSlide(
-                                  imageAsset: 'assets/welcome2.jpg',
+                                  imageAsset: 'assets/screen3.jpg',
                                   badge: 'Real-time Dashboard',
-                                  title: 'PANTAU AKTIVITAS KELAS',
+                                  title: 'Dashboard Pantau Aktivitas Akademik Mahasiswa',
                                   subtitle:
-                                      'Dashboard real-time untuk dosen dan mahasiswa.',
-                                ),
-                                _WelcomeSlide(
-                                  imageAsset: 'assets/welcome3.jpg',
-                                  badge: 'Rapi & Terstruktur',
-                                  title: 'SEMUA DATA TERATUR',
-                                  subtitle:
-                                      'Tugas, materi, dan nilai tersimpan rapi.',
+                                      'Dashboard real-time untuk \n memantau akademik mahasiswa.',
                                 ),
                               ],
                             ),
@@ -89,7 +82,7 @@ class _WelcomeViewState extends State<WelcomeView> {
                               left: 0,
                               right: 0,
                               bottom: 14,
-                              child: _PageDots(activeIndex: _index, count: 4),
+                              child: _PageDots(activeIndex: _index, count: 3),
                             ),
                           ],
                         ),
