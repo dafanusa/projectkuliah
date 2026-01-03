@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import '../../../theme/app_colors.dart';
-import '../../../widgets/reveal.dart';
 import '../controllers/splash_controller.dart';
 
 class SplashView extends GetView<SplashController> {
@@ -10,147 +7,126 @@ class SplashView extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
+    const navy = Color(0xFF0A1D37);
+    const navyAccent = Color(0xFF102A52);
+
     return Scaffold(
       body: Container(
+        width: double.infinity,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.navy, AppColors.navyAccent],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            colors: [navy, navyAccent],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
         ),
-        child: SafeArea(
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: Opacity(
-                  opacity: 0.08,
-                  child: Image.asset(
-                    'assets/welcome1.jpg',
-                    fit: BoxFit.cover,
-                  ),
-                ),
+        child: Stack(
+          children: [
+            Positioned(
+              top: -120,
+              right: -80,
+              child: _GlowCircle(
+                size: 260,
+                color: Color(0xFF244A8D),
               ),
-              Positioned.fill(
-                child: Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        Colors.white.withOpacity(0.08),
-                        Colors.transparent,
-                        Colors.white.withOpacity(0.06),
-                      ],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
+            ),
+            Positioned(
+              bottom: -140,
+              left: -90,
+              child: _GlowCircle(
+                size: 300,
+                color: Color(0xFF1B3569),
+              ),
+            ),
+            Positioned(
+              top: 140,
+              left: 24,
+              child: _GlowCircle(
+                size: 90,
+                color: Color(0xFF2A5AA8),
+              ),
+            ),
+            Center(
+              child: AnimatedBuilder(
+                animation: controller.fadeAnimation,
+                builder: (context, child) {
+                  final opacity = controller.fadeAnimation.value;
+                  final slide = controller.slideAnimation.value;
+                  final scale = controller.scaleAnimation.value;
+                  return Opacity(
+                    opacity: opacity == 0 ? 1 : opacity,
+                    child: Transform.translate(
+                      offset: Offset(0, slide.dy * 120),
+                      child: Transform.scale(
+                        scale: scale == 0 ? 1 : scale,
+                        child: child,
+                      ),
                     ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: -80,
-                right: -60,
-                child: _GlowCircle(
-                  size: 220,
-                  color: Colors.white.withOpacity(0.12),
-                ),
-              ),
-              Positioned(
-                bottom: -70,
-                left: -40,
-                child: _GlowCircle(
-                  size: 200,
-                  color: Colors.white.withOpacity(0.1),
-                ),
-              ),
-              Positioned(
-                top: 120,
-                left: -40,
-                child: _GlowCircle(
-                  size: 140,
-                  color: Colors.white.withOpacity(0.05),
-                ),
-              ),
-              Center(
-                child: Reveal(
-                  delayMs: 80,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TweenAnimationBuilder<double>(
-                        tween: Tween(begin: 0.96, end: 1.0),
-                        duration: const Duration(milliseconds: 1200),
-                        curve: Curves.easeOutBack,
-                        builder: (context, value, child) => Transform.scale(
-                          scale: value,
-                          child: child,
-                        ),
-                        child: Container(
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.14),
-                            borderRadius: BorderRadius.circular(26),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.12),
-                            ),
-                          ),
-                          child: Image.asset(
-                            'assets/mvbtnobg.png',
-                            width: 84,
-                            height: 84,
-                            fit: BoxFit.contain,
-                          ),
-                        ),
+                  );
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ================= ICON =================
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(color: Colors.white24),
                       ),
-                      const SizedBox(height: 22),
-                      const Text(
-                        'PortalNusaAkademi',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.4,
-                        ),
+                      child: const Icon(
+                        Icons.school_rounded,
+                        color: Colors.white,
+                        size: 64,
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Gerbang akademik yang rapi dan modern.',
-                        style: TextStyle(color: Color(0xFFD6E0F5)),
+                    ),
+
+                    const SizedBox(height: 36),
+
+                    // ================= TITLE =================
+                    const Text(
+                      "PortalNusaAkademi",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 1.2,
                       ),
-                      const SizedBox(height: 28),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'Memuat portal...',
-                              style: TextStyle(color: Color(0xFFD6E0F5)),
-                            ),
-                          ],
-                        ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // ================= SUBTITLE =================
+                    const Text(
+                      "Kelola kelas, materi, tugas, dan karya dosen.",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Color(0xFFD6E0F5),
                       ),
-                    ],
-                  ),
+                    ),
+
+                    const SizedBox(height: 50),
+
+                    // ================= LOADING =================
+                    const SizedBox(
+                      width: 52,
+                      height: 52,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 4,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
+                        backgroundColor: Color(0x3387A8E8),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -170,7 +146,7 @@ class _GlowCircle extends StatelessWidget {
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: color,
+        color: color.withOpacity(0.35),
       ),
     );
   }

@@ -77,7 +77,12 @@ class KaryaView extends GetView<KaryaController> {
                                   controller,
                                   item: item,
                                 ),
-                                onDelete: () => controller.deleteKarya(item.id),
+                                onDelete: () => _confirmDelete(
+                                  title: 'Hapus karya ini?',
+                                  successMessage: 'Karya berhasil dihapus.',
+                                  onConfirm: () =>
+                                      controller.deleteKarya(item.id),
+                                ),
                               ),
                             ),
                           )
@@ -367,6 +372,51 @@ class _InfoPill extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmDelete({
+  required String title,
+  required String successMessage,
+  required Future<void> Function() onConfirm,
+}) async {
+  await Get.dialog(
+    AlertDialog(
+      title: Text(title),
+      content: const Text('Tindakan ini tidak bisa dibatalkan.'),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await onConfirm();
+              Get.back();
+              Future.microtask(() {
+                Get.snackbar(
+                  'Berhasil',
+                  successMessage,
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
+                  snackPosition: SnackPosition.TOP,
+                );
+              });
+            } catch (error) {
+              Get.snackbar(
+                'Gagal',
+                error.toString(),
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            }
+          },
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _EmptyState extends StatelessWidget {

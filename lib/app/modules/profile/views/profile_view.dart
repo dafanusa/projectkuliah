@@ -356,8 +356,13 @@ class _ClassSection extends StatelessWidget {
                                   IconButton(
                                     icon: const Icon(Icons.delete_rounded,
                                         color: Colors.red),
-                                    onPressed: () =>
-                                        classesController.deleteClass(item.id),
+                                    onPressed: () => _confirmDelete(
+                                      title: 'Hapus kelas ini?',
+                                      successMessage:
+                                          'Kelas berhasil dihapus.',
+                                      onConfirm: () => classesController
+                                          .deleteClass(item.id),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -402,6 +407,15 @@ Future<void> _openAddClassDialog(ClassesController controller) async {
             }
             await controller.addClass(name);
             Get.back();
+            Future.microtask(() {
+              Get.snackbar(
+                'Berhasil',
+                'Kelas berhasil ditambahkan.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            });
           },
           child: const Text('Simpan'),
         ),
@@ -439,8 +453,62 @@ Future<void> _openEditClassDialog(
             }
             await controller.updateClass(id, name);
             Get.back();
+            Future.microtask(() {
+              Get.snackbar(
+                'Berhasil',
+                'Nama kelas berhasil diperbarui.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            });
           },
           child: const Text('Simpan'),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> _confirmDelete({
+  required String title,
+  required String successMessage,
+  required Future<void> Function() onConfirm,
+}) async {
+  await Get.dialog(
+    AlertDialog(
+      title: Text(title),
+      content: const Text('Tindakan ini tidak bisa dibatalkan.'),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await onConfirm();
+              Get.back();
+              Future.microtask(() {
+                Get.snackbar(
+                  'Berhasil',
+                  successMessage,
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
+                  snackPosition: SnackPosition.TOP,
+                );
+              });
+            } catch (error) {
+              Get.snackbar(
+                'Gagal',
+                error.toString(),
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            }
+          },
+          child: const Text('Hapus'),
         ),
       ],
     ),

@@ -317,8 +317,27 @@ Future<void> _confirmDelete({
         ),
         ElevatedButton(
           onPressed: () async {
-            await Future.sync(onConfirm);
-            Get.back();
+            try {
+              await Future.sync(onConfirm);
+              Get.back();
+              Future.microtask(() {
+                Get.snackbar(
+                  'Berhasil',
+                  'Data berhasil dihapus.',
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
+                  snackPosition: SnackPosition.TOP,
+                );
+              });
+            } catch (error) {
+              Get.snackbar(
+                'Gagal',
+                error.toString(),
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            }
           },
           child: const Text('Hapus'),
         ),

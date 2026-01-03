@@ -18,7 +18,7 @@
 
 
     <application
-        android:label="MVBT Activity Manager"
+        android:label="PortalNusaAkademi"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
@@ -54,7 +54,7 @@
 
         <!-- ===== MAIN ACTIVITY ===== -->
         <activity
-            android:name=".MainActivity"
+            android:name=".AplikasiTest"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""

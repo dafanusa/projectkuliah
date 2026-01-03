@@ -186,27 +186,48 @@ Future<void> showMateriForm(
                   );
                   return;
                 }
-                if (item == null) {
-                  await controller.addMateri(
-                    title: title,
-                    description: descController.text.trim(),
-                    meeting: meeting,
-                    date: selectedDate,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
-                  );
-                } else {
-                  await controller.updateMateri(
-                    id: item.id,
-                    title: title,
-                    description: descController.text.trim(),
-                    meeting: meeting,
-                    date: selectedDate,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
+                try {
+                  if (item == null) {
+                    await controller.addMateri(
+                      title: title,
+                      description: descController.text.trim(),
+                      meeting: meeting,
+                      date: selectedDate,
+                      classId: selectedClassId,
+                      filePath: selectedFilePath,
+                    );
+                  } else {
+                    await controller.updateMateri(
+                      id: item.id,
+                      title: title,
+                      description: descController.text.trim(),
+                      meeting: meeting,
+                      date: selectedDate,
+                      classId: selectedClassId,
+                      filePath: selectedFilePath,
+                    );
+                  }
+                  Get.back();
+                  Future.microtask(() {
+                    Get.snackbar(
+                      'Berhasil',
+                      item == null
+                          ? 'Materi berhasil ditambahkan.'
+                          : 'Materi berhasil diperbarui.',
+                      backgroundColor: AppColors.navy,
+                      colorText: Colors.white,
+                      snackPosition: SnackPosition.TOP,
+                    );
+                  });
+                } catch (error) {
+                  Get.snackbar(
+                    'Gagal',
+                    error.toString(),
+                    backgroundColor: AppColors.navy,
+                    colorText: Colors.white,
+                    snackPosition: SnackPosition.TOP,
                   );
                 }
-                Get.back();
               },
               child: const Text('Simpan'),
             ),
@@ -400,25 +421,46 @@ Future<void> showTugasForm(
                   );
                   return;
                 }
-                if (item == null) {
-                  await controller.addTugas(
-                    title: title,
-                    instructions: instructions,
-                    deadline: deadline!,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
-                  );
-                } else {
-                  await controller.updateTugas(
-                    id: item.id,
-                    title: title,
-                    instructions: instructions,
-                    deadline: deadline!,
-                    classId: selectedClassId,
-                    filePath: selectedFilePath,
+                try {
+                  if (item == null) {
+                    await controller.addTugas(
+                      title: title,
+                      instructions: instructions,
+                      deadline: deadline!,
+                      classId: selectedClassId,
+                      filePath: selectedFilePath,
+                    );
+                  } else {
+                    await controller.updateTugas(
+                      id: item.id,
+                      title: title,
+                      instructions: instructions,
+                      deadline: deadline!,
+                      classId: selectedClassId,
+                      filePath: selectedFilePath,
+                    );
+                  }
+                  Get.back();
+                  Future.microtask(() {
+                    Get.snackbar(
+                      'Berhasil',
+                      item == null
+                          ? 'Tugas berhasil ditambahkan.'
+                          : 'Tugas berhasil diperbarui.',
+                      backgroundColor: AppColors.navy,
+                      colorText: Colors.white,
+                      snackPosition: SnackPosition.TOP,
+                    );
+                  });
+                } catch (error) {
+                  Get.snackbar(
+                    'Gagal',
+                    error.toString(),
+                    backgroundColor: AppColors.navy,
+                    colorText: Colors.white,
+                    snackPosition: SnackPosition.TOP,
                   );
                 }
-                Get.back();
               },
               child: const Text('Simpan'),
             ),
@@ -594,6 +636,17 @@ Future<void> showKaryaForm(
                   );
                 }
                 Get.back();
+                Future.microtask(() {
+                  Get.snackbar(
+                    'Berhasil',
+                    item == null
+                        ? 'Karya berhasil ditambahkan.'
+                        : 'Karya berhasil diperbarui.',
+                    backgroundColor: AppColors.navy,
+                    colorText: Colors.white,
+                    snackPosition: SnackPosition.TOP,
+                  );
+                });
               },
               child: const Text('Simpan'),
             ),
@@ -830,23 +883,44 @@ Future<void> showNilaiForm(
                   );
                   return;
                 }
-                if (item == null) {
-                  await controller.addGrade(
-                    studentName: name,
-                    score: score,
-                    classId: selectedClassId,
-                    assignmentId: selectedAssignmentId,
-                  );
-                } else {
-                  await controller.updateGrade(
-                    id: item.id,
-                    studentName: name,
-                    score: score,
-                    classId: selectedClassId,
-                    assignmentId: selectedAssignmentId,
+                try {
+                  if (item == null) {
+                    await controller.addGrade(
+                      studentName: name,
+                      score: score,
+                      classId: selectedClassId,
+                      assignmentId: selectedAssignmentId,
+                    );
+                  } else {
+                    await controller.updateGrade(
+                      id: item.id,
+                      studentName: name,
+                      score: score,
+                      classId: selectedClassId,
+                      assignmentId: selectedAssignmentId,
+                    );
+                  }
+                  Get.back();
+                  Future.microtask(() {
+                    Get.snackbar(
+                      'Berhasil',
+                      item == null
+                          ? 'Nilai berhasil ditambahkan.'
+                          : 'Nilai berhasil diperbarui.',
+                      backgroundColor: AppColors.navy,
+                      colorText: Colors.white,
+                      snackPosition: SnackPosition.TOP,
+                    );
+                  });
+                } catch (error) {
+                  Get.snackbar(
+                    'Gagal',
+                    error.toString(),
+                    backgroundColor: AppColors.navy,
+                    colorText: Colors.white,
+                    snackPosition: SnackPosition.TOP,
                   );
                 }
-                Get.back();
               },
               child: const Text('Simpan'),
             ),

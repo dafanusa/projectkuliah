@@ -92,7 +92,7 @@ class _TugasTab extends GetView<TugasController> {
                     padding: const EdgeInsets.only(bottom: 16),
                     child: _AdminPanel(
                       title: 'Kelola Tugas',
-                      subtitle: 'Buat tugas baru dan atur deadline.',
+                      subtitle: 'Buat tugas baru \ndan atur deadline.',
                       actionLabel: 'Buat Tugas',
                       onTap: () => showTugasForm(
                         context,
@@ -395,6 +395,15 @@ class _AdminPanel extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.navy,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
               child: Text(actionLabel),
             ),
           ],
@@ -745,8 +754,15 @@ class TugasClassView extends GetView<TugasController> {
                                               fixedClassId: classId,
                                               fixedClassName: className,
                                             ),
-                                            onDelete: () =>
-                                                controller.deleteTugas(item.id),
+                                            onDelete: () => _confirmDelete(
+                                              title: 'Hapus tugas ini?',
+                                              successMessage:
+                                                  'Tugas berhasil dihapus.',
+                                              onConfirm: () =>
+                                                  controller.deleteTugas(
+                                                item.id,
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       )
@@ -943,6 +959,51 @@ class _InfoPill extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmDelete({
+  required String title,
+  required String successMessage,
+  required Future<void> Function() onConfirm,
+}) async {
+  await Get.dialog(
+    AlertDialog(
+      title: Text(title),
+      content: const Text('Tindakan ini tidak bisa dibatalkan.'),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await onConfirm();
+              Get.back();
+              Future.microtask(() {
+                Get.snackbar(
+                  'Berhasil',
+                  successMessage,
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
+                  snackPosition: SnackPosition.TOP,
+                );
+              });
+            } catch (error) {
+              Get.snackbar(
+                'Gagal',
+                error.toString(),
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            }
+          },
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
 }
 
 class _AttachmentCard extends StatelessWidget {

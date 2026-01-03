@@ -289,6 +289,15 @@ class _AdminPanel extends StatelessWidget {
             ),
             ElevatedButton(
               onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.navy,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
               child: Text(actionLabel),
             ),
           ],
@@ -486,8 +495,15 @@ class NilaiClassView extends GetView<NilaiController> {
                                                 fixedClassId: classId,
                                                 fixedClassName: className,
                                               ),
-                                              onDelete: () =>
-                                                  controller.deleteGrade(item.id),
+                                              onDelete: () => _confirmDelete(
+                                                title: 'Hapus nilai ini?',
+                                                successMessage:
+                                                    'Nilai berhasil dihapus.',
+                                                onConfirm: () =>
+                                                    controller.deleteGrade(
+                                                  item.id,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         )
@@ -534,8 +550,16 @@ class NilaiClassView extends GetView<NilaiController> {
                                                             ),
                                                             IconButton(
                                                               onPressed: () =>
-                                                                  controller.deleteGrade(
-                                                                item.id,
+                                                                  _confirmDelete(
+                                                                title:
+                                                                    'Hapus nilai ini?',
+                                                                successMessage:
+                                                                    'Nilai berhasil dihapus.',
+                                                                onConfirm: () =>
+                                                                    controller
+                                                                        .deleteGrade(
+                                                                  item.id,
+                                                                ),
                                                               ),
                                                               icon: const Icon(
                                                                   Icons.delete_rounded,
@@ -648,4 +672,49 @@ class _NilaiCard extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _confirmDelete({
+  required String title,
+  required String successMessage,
+  required Future<void> Function() onConfirm,
+}) async {
+  await Get.dialog(
+    AlertDialog(
+      title: Text(title),
+      content: const Text('Tindakan ini tidak bisa dibatalkan.'),
+      actions: [
+        TextButton(
+          onPressed: () => Get.back(),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              await onConfirm();
+              Get.back();
+              Future.microtask(() {
+                Get.snackbar(
+                  'Berhasil',
+                  successMessage,
+                  backgroundColor: AppColors.navy,
+                  colorText: Colors.white,
+                  snackPosition: SnackPosition.TOP,
+                );
+              });
+            } catch (error) {
+              Get.snackbar(
+                'Gagal',
+                error.toString(),
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+                snackPosition: SnackPosition.TOP,
+              );
+            }
+          },
+          child: const Text('Hapus'),
+        ),
+      ],
+    ),
+  );
 }
