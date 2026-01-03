@@ -14,6 +14,7 @@ class AuthService extends GetxService {
   final RxString name = ''.obs;
   final RxString nim = ''.obs;
   final RxString avatarUrl = ''.obs;
+  final RxBool isProfileLoading = false.obs;
   final RxBool suspendRedirect = false.obs;
   StreamSubscription<AuthState>? _subscription;
 
@@ -25,17 +26,19 @@ class AuthService extends GetxService {
     final session = _client.auth.currentSession;
     user.value = session?.user;
     if (user.value != null) {
-      loadProfile();
+      Future.microtask(loadProfile);
+    } else {
+      isProfileLoading.value = false;
     }
 
-    _subscription = _client.auth.onAuthStateChange.listen((data) {
+    _subscription = _client.auth.onAuthStateChange.listen((data) async {
       final session = data.session;
       user.value = session?.user;
       if (suspendRedirect.value) {
         return;
       }
       if (session?.user != null) {
-        loadProfile();
+        await loadProfile();
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (Get.currentRoute != Routes.main) {
             if (Get.isRegistered<NavigationController>()) {
@@ -49,6 +52,7 @@ class AuthService extends GetxService {
         name.value = '';
         nim.value = '';
         avatarUrl.value = '';
+        isProfileLoading.value = false;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (Get.currentRoute != Routes.welcome &&
               Get.currentRoute != Routes.login &&
@@ -63,18 +67,22 @@ class AuthService extends GetxService {
   Future<void> loadProfile() async {
     final currentUser = user.value;
     if (currentUser == null) {
+      isProfileLoading.value = false;
       return;
     }
+    isProfileLoading.value = true;
+    final meta = currentUser.userMetadata ?? {};
+    final metaName = (meta['name'] ?? '') as String;
+    final metaRole = (meta['role'] ?? 'user') as String;
+    final metaNim = (meta['nim'] ?? '') as String;
+    final hadRole = role.value.isNotEmpty;
     try {
-      final meta = currentUser.userMetadata ?? {};
-      final metaName = (meta['name'] ?? '') as String;
-      final metaRole = (meta['role'] ?? 'user') as String;
-      final metaNim = (meta['nim'] ?? '') as String;
       final response = await _client
           .from('profiles')
           .select('name, role, nim, avatar_url')
           .eq('id', currentUser.id)
-          .maybeSingle();
+          .maybeSingle()
+          .timeout(const Duration(seconds: 3), onTimeout: () => null);
 
       if (response == null) {
         if (metaName.isNotEmpty || metaNim.isNotEmpty) {
@@ -98,10 +106,13 @@ class AuthService extends GetxService {
       final profileAvatar = (response['avatar_url'] ?? '') as String;
       if ((profileName.isEmpty && metaName.isNotEmpty) ||
           (profileNim.isEmpty && metaNim.isNotEmpty)) {
-        await _client.from('profiles').update({
-          'name': profileName.isEmpty ? metaName : profileName,
-          'nim': profileNim.isEmpty ? metaNim : profileNim,
-        }).eq('id', currentUser.id);
+        await _client
+            .from('profiles')
+            .update({
+              'name': profileName.isEmpty ? metaName : profileName,
+              'nim': profileNim.isEmpty ? metaNim : profileNim,
+            })
+            .eq('id', currentUser.id);
       }
 
       name.value = profileName.isEmpty ? metaName : profileName;
@@ -109,10 +120,14 @@ class AuthService extends GetxService {
       nim.value = profileNim.isEmpty ? metaNim : profileNim;
       avatarUrl.value = profileAvatar;
     } catch (_) {
-      name.value = '';
-      role.value = '';
-      nim.value = '';
+      if (!hadRole) {
+        name.value = metaName;
+        role.value = metaRole;
+        nim.value = metaNim;
+      }
       avatarUrl.value = '';
+    } finally {
+      isProfileLoading.value = false;
     }
   }
 
@@ -149,8 +164,13 @@ class AuthService extends GetxService {
     }
   }
 
-  Future<void> signOut() async {
-    await _client.auth.signOut();
+  Future<void> signOut({SignOutScope scope = SignOutScope.local}) async {
+    await _client.auth.signOut(scope: scope);
+  }
+
+  void signOutAndRedirect() {
+    Get.offAllNamed(Routes.welcome);
+    _client.auth.signOut(scope: SignOutScope.local);
   }
 
   @override

@@ -188,14 +188,25 @@ class _HeroBanner extends StatelessWidget {
             style: const TextStyle(color: Color(0xFFD6E0F5)),
           ),
           const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.asset(
-              'assets/register.jpg',
-              height: 120,
-              width: double.infinity,
-              fit: BoxFit.cover,
-            ),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isWide = constraints.maxWidth >= 600;
+              if (isWide) {
+                return const SizedBox.shrink();
+              }
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: SizedBox(
+                  height: 120,
+                  width: double.infinity,
+                  child: Image.asset(
+                    'assets/register.jpg',
+                    fit: BoxFit.cover,
+                    alignment: Alignment.center,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),

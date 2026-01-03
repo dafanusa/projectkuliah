@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../services/auth_service.dart';
 import '../../../../theme/app_colors.dart';
+import '../../../navigation/controllers/navigation_controller.dart';
+import '../../../../routes/app_routes.dart';
 
 class LoginController extends GetxController {
   final emailController = TextEditingController();
@@ -32,7 +35,23 @@ class LoginController extends GetxController {
 
     try {
       isLoading.value = true;
+      _authService.suspendRedirect.value = true;
+      _authService.role.value = '';
+      _authService.name.value = '';
+      _authService.nim.value = '';
+      _authService.avatarUrl.value = '';
+      final currentUser = _authService.user.value;
+      if (currentUser != null) {
+        await _authService.signOut(scope: SignOutScope.local);
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
       await _authService.signIn(email: email, password: password);
+      _authService.user.value = Supabase.instance.client.auth.currentUser;
+      await _authService.loadProfile();
+      if (Get.isRegistered<NavigationController>()) {
+        Get.find<NavigationController>().reset();
+      }
+      Get.offAllNamed(Routes.main);
     } catch (error) {
       Get.snackbar(
         'Login gagal',
@@ -41,6 +60,7 @@ class LoginController extends GetxController {
         colorText: Colors.white,
       );
     } finally {
+      _authService.suspendRedirect.value = false;
       isLoading.value = false;
     }
   }

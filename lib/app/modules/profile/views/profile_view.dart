@@ -53,7 +53,7 @@ class ProfileView extends GetView<ProfileController> {
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: authService.signOut,
+                onPressed: authService.signOutAndRedirect,
                   icon: const Icon(Icons.logout_rounded),
                   label: const Text('Keluar'),
                   style: ElevatedButton.styleFrom(
