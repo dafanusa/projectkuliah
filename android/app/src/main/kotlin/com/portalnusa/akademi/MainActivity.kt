@@ -1,4 +1,4 @@
-package com.example.demomobilemodul2
+package com.portalnusa.akademi
 
 import io.flutter.embedding.android.FlutterActivity
 
