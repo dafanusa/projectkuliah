@@ -1075,6 +1075,29 @@ class NilaiClassView extends GetView<NilaiController> {
                     _HeaderStat(label: 'Jumlah', value: items.length.toString()),
                   ],
                 ),
+                if (isAdmin && items.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showExportSheet(
+                        context: context,
+                        title: 'Ekspor Nilai',
+                        onExport: (format) => controller.exportAssignmentGrades(
+                          className: className,
+                          items: items,
+                          format: format,
+                        ),
+                      ),
+                      icon: const Icon(Icons.download_rounded),
+                      label: const Text('Ekspor'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.navy,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -1277,6 +1300,29 @@ class NilaiUjianClassView extends GetView<NilaiController> {
                     _HeaderStat(label: 'Jumlah', value: items.length.toString()),
                   ],
                 ),
+                if (isAdmin && items.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _showExportSheet(
+                        context: context,
+                        title: 'Ekspor Nilai Ujian',
+                        onExport: (format) => controller.exportExamGrades(
+                          className: className,
+                          items: items,
+                          format: format,
+                        ),
+                      ),
+                      icon: const Icon(Icons.download_rounded),
+                      label: const Text('Ekspor'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.navy,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 16),
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 250),
@@ -1574,6 +1620,59 @@ class _NilaiUjianCard extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showExportSheet({
+  required BuildContext context,
+  required String title,
+  required void Function(ExportFormat format) onExport,
+}) {
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (context) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+          ),
+          ListTile(
+            leading: const Icon(Icons.table_view_rounded),
+            title: const Text('Excel (.xlsx)'),
+            onTap: () {
+              Navigator.pop(context);
+              onExport(ExportFormat.excel);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf_rounded),
+            title: const Text('PDF (.pdf)'),
+            onTap: () {
+              Navigator.pop(context);
+              onExport(ExportFormat.pdf);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.description_rounded),
+            title: const Text('Word (.doc)'),
+            onTap: () {
+              Navigator.pop(context);
+              onExport(ExportFormat.word);
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    ),
+  );
 }
 
 Future<void> _confirmDelete({

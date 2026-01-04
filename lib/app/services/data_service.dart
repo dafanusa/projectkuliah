@@ -606,6 +606,60 @@ class DataService {
         .toList();
   }
 
+  Future<Map<String, String>> fetchProfileNimByIds(List<String> ids) async {
+    final uniqueIds =
+        ids.where((id) => id.trim().isNotEmpty).toSet().toList();
+    if (uniqueIds.isEmpty) {
+      return {};
+    }
+    try {
+      final data = await _client
+          .from('profiles')
+          .select('id,nim')
+          .inFilter('id', uniqueIds);
+      final result = <String, String>{};
+      for (final item in (data as List<dynamic>)) {
+        final map = item as Map<String, dynamic>;
+        final id = map['id'] as String?;
+        final nim = (map['nim'] ?? '') as String;
+        if (id != null && id.isNotEmpty && nim.isNotEmpty) {
+          result[id] = nim;
+        }
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<Map<String, String>> fetchProfileNimByNames(
+    List<String> names,
+  ) async {
+    final uniqueNames =
+        names.map((name) => name.trim()).where((name) => name.isNotEmpty).toSet();
+    if (uniqueNames.isEmpty) {
+      return {};
+    }
+    try {
+      final data = await _client
+          .from('profiles')
+          .select('name,nim')
+          .inFilter('name', uniqueNames.toList());
+      final result = <String, String>{};
+      for (final item in (data as List<dynamic>)) {
+        final map = item as Map<String, dynamic>;
+        final name = (map['name'] ?? '') as String;
+        final nim = (map['nim'] ?? '') as String;
+        if (name.isNotEmpty && nim.isNotEmpty) {
+          result[name.toLowerCase()] = nim;
+        }
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<List<ExamSubmissionItem>> fetchExamSubmissions(
     String examId,
   ) async {
