@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../models/class_item.dart';
 import '../../../models/exam_item.dart';
 import '../../../models/exam_attempt.dart';
+import '../../../models/semester_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
@@ -40,9 +41,7 @@ class UjianView extends GetView<UjianController> {
           .length;
       final selesai = visibleItems.length - aktif;
       final classes = classesController.classes.toList();
-      final hasUnassigned =
-          visibleItems
-              .any((item) => item.classId == null || item.classId!.isEmpty);
+      final semesters = classesController.semesters.toList();
       final countByClassId = <String, int>{};
       final activeCountByClassId = <String, int>{};
       final endedCountByClassId = <String, int>{};
@@ -56,26 +55,6 @@ class UjianView extends GetView<UjianController> {
           endedCountByClassId[classId] =
               (endedCountByClassId[classId] ?? 0) + 1;
         }
-      }
-
-      Future<void> handleClassTap(ClassItem classItem) async {
-        final isLocked = classesController.isClassLocked(classItem.id);
-        if (isLocked) {
-          final opened = await showJoinClassDialog(
-            controller: classesController,
-            classId: classItem.id,
-            className: classItem.name,
-          );
-          if (!opened) {
-            return;
-          }
-        }
-        Get.to(
-          () => UjianClassView(
-            classId: classItem.id,
-            className: classItem.name,
-          ),
-        );
       }
 
       return RefreshIndicator(
@@ -121,87 +100,439 @@ class UjianView extends GetView<UjianController> {
                 ),
               ],
               const SizedBox(height: 16),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 250),
-                child: isLoading && visibleItems.isEmpty && classes.isEmpty
-                    ? const SizedBox(
-                        height: 180,
-                        child: Center(child: CircularProgressIndicator()),
-                      )
-                    : visibleItems.isEmpty && classes.isEmpty
-                        ? const _EmptyState(
-                            title: 'Belum ada ujian',
-                            subtitle:
-                                'Admin bisa menjadwalkan ujian baru.',
-                          )
-                        : LayoutBuilder(
-                            builder: (context, constraints) {
-                              final isWide = constraints.maxWidth > 720;
-                              final itemWidth = isWide
-                                  ? (constraints.maxWidth - 12) / 2
-                                  : constraints.maxWidth;
-                              final tiles = <Widget>[];
-                              for (final entry in classes.asMap().entries) {
-                                final classItem = entry.value;
-                                final count =
-                                    countByClassId[classItem.id] ?? 0;
-                                tiles.add(
-                                  Reveal(
-                                    delayMs: 140 + entry.key * 70,
-                                    child: SizedBox(
-                                      width: itemWidth,
-                                      child: _ClassCard(
-                                        title: classItem.name,
-                                        subtitle:
-                                            '$count ujian | ${activeCountByClassId[classItem.id] ?? 0} aktif / ${endedCountByClassId[classItem.id] ?? 0} berakhir',
-                                        icon: Icons.quiz_rounded,
-                                        isLocked:
-                                            !isAdmin &&
-                                            classesController
-                                                .isClassLocked(classItem.id),
-                                        onTap: () =>
-                                            handleClassTap(classItem),
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              if (hasUnassigned) {
-                                tiles.add(
-                                  Reveal(
-                                    delayMs: 140 + tiles.length * 70,
-                                    child: SizedBox(
-                                      width: itemWidth,
-                                      child: _ClassCard(
-                                        title: 'Tanpa Kelas',
-                                        subtitle:
-                                            '${countByClassId[''] ?? 0} ujian | ${activeCountByClassId[''] ?? 0} aktif / ${endedCountByClassId[''] ?? 0} berakhir',
-                                        icon: Icons.folder_off_rounded,
-                                        onTap: () => Get.to(
-                                          () => const UjianClassView(
-                                            classId: null,
-                                            className: 'Tanpa Kelas',
-                                          ),
-                                        ),
-                                        isLocked: false,
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              }
-                              return Wrap(
-                                spacing: 12,
-                                runSpacing: 12,
-                                children: tiles,
-                              );
-                            },
-                          ),
+              TextField(
+                onChanged: (value) =>
+                    controller.searchQuery.value = value.trim(),
+                decoration: const InputDecoration(
+                  hintText: 'Cari judul ujian atau kelas...',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SemesterSection(
+                semesters: semesters,
+                classes: classes,
+                items: visibleItems,
+                isLoading: isLoading,
+                countByClassId: countByClassId,
+                activeCountByClassId: activeCountByClassId,
+                endedCountByClassId: endedCountByClassId,
+                query: controller.searchQuery.value,
+                onSemesterTap: (semesterId, semesterName) {
+                  controller.semesterSearchQuery.value = '';
+                  Get.to(
+                    () => UjianSemesterView(
+                      semesterId: semesterId,
+                      semesterName: semesterName,
+                    ),
+                  );
+                },
               ),
             ],
           ),
         ),
       );
     });
+  }
+}
+
+class _SemesterSection extends StatelessWidget {
+  final List<SemesterItem> semesters;
+  final List<ClassItem> classes;
+  final List<ExamItem> items;
+  final bool isLoading;
+  final Map<String, int> countByClassId;
+  final Map<String, int> activeCountByClassId;
+  final Map<String, int> endedCountByClassId;
+  final String query;
+  final void Function(String? semesterId, String semesterName) onSemesterTap;
+
+  const _SemesterSection({
+    required this.semesters,
+    required this.classes,
+    required this.items,
+    required this.isLoading,
+    required this.countByClassId,
+    required this.activeCountByClassId,
+    required this.endedCountByClassId,
+    required this.query,
+    required this.onSemesterTap,
+  });
+
+  int _sumCounts(Iterable<String> classIds, Map<String, int> map) {
+    var total = 0;
+    for (final id in classIds) {
+      total += map[id] ?? 0;
+    }
+    return total;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasNoSemester = classes.any(
+      (item) => item.semesterId == null || item.semesterId!.isEmpty,
+    );
+    if (isLoading && items.isEmpty && classes.isEmpty) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (items.isEmpty && classes.isEmpty) {
+      return const _EmptyState(
+        title: 'Belum ada ujian',
+        subtitle: 'Admin bisa menjadwalkan ujian baru.',
+      );
+    }
+    if (semesters.isEmpty && !hasNoSemester) {
+      return const _EmptyState(
+        title: 'Belum ada semester',
+        subtitle: 'Tambahkan semester untuk menampilkan kelas.',
+      );
+    }
+
+    final noSemesterClassCount = classes
+        .where((item) => item.semesterId == null || item.semesterId!.isEmpty)
+        .length;
+    final noSemesterClassIds = classes
+        .where((item) => item.semesterId == null || item.semesterId!.isEmpty)
+        .map((item) => item.id)
+        .toList();
+    final noSemesterExamCount =
+        _sumCounts(noSemesterClassIds, countByClassId) +
+            (countByClassId[''] ?? 0);
+    final noSemesterActive =
+        _sumCounts(noSemesterClassIds, activeCountByClassId) +
+            (activeCountByClassId[''] ?? 0);
+    final noSemesterEnded =
+        _sumCounts(noSemesterClassIds, endedCountByClassId) +
+            (endedCountByClassId[''] ?? 0);
+    final normalizedQuery = query.trim().toLowerCase();
+
+    final cards = <Widget>[];
+    for (final item in semesters) {
+      final semesterClasses =
+          classes.where((c) => c.semesterId == item.id).toList();
+      final classIds = semesterClasses.map((c) => c.id).toList();
+      final classCount = semesterClasses.length;
+      final examCount = _sumCounts(classIds, countByClassId);
+      final activeCount = _sumCounts(classIds, activeCountByClassId);
+      final endedCount = _sumCounts(classIds, endedCountByClassId);
+      if (normalizedQuery.isNotEmpty) {
+        final hasClassMatch = semesterClasses.any(
+          (c) => c.name.toLowerCase().contains(normalizedQuery),
+        );
+        final hasExamMatch = items.any((e) {
+          if (!e.title.toLowerCase().contains(normalizedQuery)) {
+            return false;
+          }
+          final classId = e.classId;
+          if (classId == null || classId.isEmpty) {
+            return false;
+          }
+          return semesterClasses.any((c) => c.id == classId);
+        });
+        if (!hasClassMatch && !hasExamMatch) {
+          continue;
+        }
+      }
+      cards.add(
+        _SemesterCard(
+          title: item.name,
+          subtitle:
+              '$classCount kelas | $examCount ujian | $activeCount aktif / $endedCount berakhir',
+          onTap: () => onSemesterTap(item.id, item.name),
+        ),
+      );
+    }
+    if (hasNoSemester) {
+      if (normalizedQuery.isNotEmpty) {
+        final semesterClasses = classes
+            .where((c) => c.semesterId == null || c.semesterId!.isEmpty)
+            .toList();
+        final hasClassMatch = semesterClasses.any(
+          (c) => c.name.toLowerCase().contains(normalizedQuery),
+        );
+        final hasExamMatch = items.any((e) {
+          if (!e.title.toLowerCase().contains(normalizedQuery)) {
+            return false;
+          }
+          return e.classId == null || e.classId!.isEmpty;
+        });
+        if (!hasClassMatch && !hasExamMatch) {
+          if (cards.isEmpty) {
+            return const _EmptyState(
+              title: 'Tidak ada hasil',
+              subtitle: 'Coba kata kunci lain.',
+            );
+          }
+          return Column(
+            children: cards
+                .map(
+                  (card) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: card,
+                  ),
+                )
+                .toList(),
+          );
+        }
+      }
+      cards.add(
+        _SemesterCard(
+          title: 'Tanpa Semester',
+          subtitle:
+              '$noSemesterClassCount kelas | $noSemesterExamCount ujian | $noSemesterActive aktif / $noSemesterEnded berakhir',
+          onTap: () => onSemesterTap(null, 'Tanpa Semester'),
+        ),
+      );
+    }
+    if (cards.isEmpty) {
+      if (normalizedQuery.isNotEmpty) {
+        return const _EmptyState(
+          title: 'Tidak ada hasil',
+          subtitle: 'Coba kata kunci lain.',
+        );
+      }
+      return const _EmptyState(
+        title: 'Belum ada semester',
+        subtitle: 'Tambahkan semester untuk menampilkan kelas.',
+      );
+    }
+    return Column(
+      children: cards
+          .map(
+            (card) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: card,
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _SemesterCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _SemesterCard({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.calendar_month_rounded,
+                  color: AppColors.navy,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class UjianSemesterView extends GetView<UjianController> {
+  final String? semesterId;
+  final String semesterName;
+
+  const UjianSemesterView({
+    super.key,
+    required this.semesterId,
+    required this.semesterName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Ujian $semesterName')),
+      body: Obx(() {
+        final isAdmin = authService.role.value == 'admin';
+        final items = controller.ujian.toList();
+        final isLoading = controller.isLoading.value;
+        final now = DateTime.now();
+        final classes = classesController.classes.toList();
+        final query = controller.semesterSearchQuery.value.trim().toLowerCase();
+        final filteredClasses = semesterId == null
+            ? classes
+                .where((c) => c.semesterId == null || c.semesterId!.isEmpty)
+                .toList()
+            : classes.where((c) => c.semesterId == semesterId).toList();
+        final visibleClasses = filteredClasses.where((classItem) {
+          if (query.isEmpty) {
+            return true;
+          }
+          if (classItem.name.toLowerCase().contains(query)) {
+            return true;
+          }
+          return items.any((item) =>
+              item.classId == classItem.id &&
+              item.title.toLowerCase().contains(query));
+        }).toList();
+        final countByClassId = <String, int>{};
+        final activeCountByClassId = <String, int>{};
+        final endedCountByClassId = <String, int>{};
+        for (final item in items) {
+          final classId = item.classId ?? '';
+          countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+          if (now.isAfter(item.startAt) && now.isBefore(item.endAt)) {
+            activeCountByClassId[classId] =
+                (activeCountByClassId[classId] ?? 0) + 1;
+          } else {
+            endedCountByClassId[classId] =
+                (endedCountByClassId[classId] ?? 0) + 1;
+          }
+        }
+        final hasUnassigned = semesterId == null &&
+            items.any((item) => item.classId == null || item.classId!.isEmpty);
+        final showUnassigned = semesterId == null &&
+            (query.isEmpty ||
+                items.any((item) =>
+                    (item.classId == null || item.classId!.isEmpty) &&
+                    item.title.toLowerCase().contains(query)));
+
+        Future<void> handleClassTap(ClassItem classItem) async {
+          final isLocked = classesController.isClassLocked(classItem.id);
+          if (isLocked) {
+            final opened = await showJoinClassDialog(
+              controller: classesController,
+              classId: classItem.id,
+              className: classItem.name,
+            );
+            if (!opened) {
+              return;
+            }
+          }
+          Get.to(
+            () => UjianClassView(
+              classId: classItem.id,
+              className: classItem.name,
+            ),
+          );
+        }
+
+        if (isLoading && items.isEmpty && filteredClasses.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final showEmptyState = visibleClasses.isEmpty && !showUnassigned;
+        final emptyState = query.isNotEmpty
+            ? const _EmptyState(
+                title: 'Tidak ada hasil',
+                subtitle: 'Coba kata kunci lain.',
+              )
+            : const _EmptyState(
+                title: 'Belum ada kelas',
+                subtitle: 'Kelas akan tampil di semester ini.',
+              );
+
+        return RefreshIndicator(
+          onRefresh: controller.loadUjian,
+          child: ResponsiveCenter(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                _ClassHero(
+                  title: 'Semester $semesterName',
+                  subtitle: 'Daftar kelas untuk semester ini.',
+                  badge: '${visibleClasses.length} kelas',
+                  icon: Icons.calendar_month_rounded,
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  onChanged: (value) =>
+                      controller.semesterSearchQuery.value = value.trim(),
+                  decoration: const InputDecoration(
+                    hintText: 'Cari judul ujian atau kelas...',
+                    prefixIcon: Icon(Icons.search_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (showEmptyState) emptyState,
+                if (!showEmptyState)
+                  ...visibleClasses.asMap().entries.map((entry) {
+                    final classItem = entry.value;
+                    final count = countByClassId[classItem.id] ?? 0;
+                    final activeCount =
+                        activeCountByClassId[classItem.id] ?? 0;
+                    final endedCount = endedCountByClassId[classItem.id] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ClassCard(
+                        title: classItem.name,
+                        subtitle:
+                            '$count ujian | $activeCount aktif / $endedCount berakhir',
+                        icon: Icons.quiz_rounded,
+                        isLocked: !isAdmin &&
+                            classesController.isClassLocked(classItem.id),
+                        onTap: () => handleClassTap(classItem),
+                      ),
+                    );
+                  }),
+                if (showUnassigned)
+                  _ClassCard(
+                    title: 'Tanpa Kelas',
+                    subtitle:
+                        '${countByClassId[''] ?? 0} ujian | ${activeCountByClassId[''] ?? 0} aktif / ${endedCountByClassId[''] ?? 0} berakhir',
+                    icon: Icons.folder_off_rounded,
+                    onTap: () => Get.to(
+                      () => const UjianClassView(
+                        classId: null,
+                        className: 'Tanpa Kelas',
+                      ),
+                    ),
+                    isLocked: false,
+                  ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
   }
 }
 

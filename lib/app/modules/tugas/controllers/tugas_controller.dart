@@ -16,6 +16,9 @@ class TugasController extends GetxController {
   final isLoading = false.obs;
   final isSubmitting = false.obs;
   final tabIndex = 0.obs;
+  final selectedSemesterId = ''.obs;
+  final searchQuery = ''.obs;
+  final semesterSearchQuery = ''.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 

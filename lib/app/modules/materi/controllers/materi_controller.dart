@@ -11,6 +11,9 @@ class MateriController extends GetxController {
 
   final materi = <MaterialItem>[].obs;
   final isLoading = false.obs;
+  final selectedSemesterId = ''.obs;
+  final searchQuery = ''.obs;
+  final semesterSearchQuery = ''.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 

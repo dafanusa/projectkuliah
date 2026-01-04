@@ -56,39 +56,11 @@ class KaryaView extends GetView<KaryaController> {
                   subtitle: 'Unggah karya agar mahasiswa bisa melihatnya.',
                 )
               else
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isWide = constraints.maxWidth > 720;
-                    final itemWidth = isWide
-                        ? (constraints.maxWidth - 12) / 2
-                        : constraints.maxWidth;
-                    return Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: karya
-                          .map(
-                            (item) => SizedBox(
-                              width: itemWidth,
-                              child: _KaryaCard(
-                                item: item,
-                                isAdmin: isAdmin,
-                                onEdit: () => showKaryaForm(
-                                  context,
-                                  controller,
-                                  item: item,
-                                ),
-                                onDelete: () => _confirmDelete(
-                                  title: 'Hapus karya ini?',
-                                  successMessage: 'Karya berhasil dihapus.',
-                                  onConfirm: () =>
-                                      controller.deleteKarya(item.id),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
+                _CategorySection(
+                  items: karya,
+                  onTap: (category) => Get.to(
+                    () => KaryaCategoryView(category: category),
+                  ),
                 ),
             ],
           ),
@@ -98,6 +70,309 @@ class KaryaView extends GetView<KaryaController> {
   }
 }
 
+class _CategorySection extends StatelessWidget {
+  final List<LecturerWorkItem> items;
+  final ValueChanged<String> onTap;
+
+  const _CategorySection({
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = <String, int>{};
+    for (final item in items) {
+      final key = item.category.isEmpty ? 'Lainnya' : item.category;
+      categories[key] = (categories[key] ?? 0) + 1;
+    }
+    final sorted = categories.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 720;
+        final itemWidth = isWide
+            ? (constraints.maxWidth - 12) / 2
+            : constraints.maxWidth;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: sorted
+              .map(
+                (entry) => SizedBox(
+                  width: itemWidth,
+                  child: _CategoryCard(
+                    title: entry.key,
+                    subtitle: '${entry.value} karya',
+                    onTap: () => onTap(entry.key),
+                  ),
+                ),
+              )
+              .toList(),
+        );
+      },
+    );
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  const _CategoryCard({
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8ECF5),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.folder_rounded,
+                  color: AppColors.navy,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.textSecondary,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class KaryaCategoryView extends GetView<KaryaController> {
+  final String category;
+
+  const KaryaCategoryView({
+    super.key,
+    required this.category,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = controller.isAdmin;
+    return Scaffold(
+      appBar: AppBar(title: Text('Karya $category')),
+      body: Obx(() {
+        final karya = controller.karya
+            .where((item) =>
+                (item.category.isEmpty ? 'Lainnya' : item.category) == category)
+            .toList();
+        final isLoading = controller.isLoading.value;
+        if (isLoading && karya.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (karya.isEmpty) {
+          return const ResponsiveCenter(
+            child: _EmptyState(
+              title: 'Belum ada karya',
+              subtitle: 'Karya akan tampil di kategori ini.',
+            ),
+          );
+        }
+        return ResponsiveCenter(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              _ClassHero(
+                title: category,
+                subtitle: 'Daftar karya dalam kategori ini.',
+                badge: '${karya.length} karya',
+                icon: Icons.folder_rounded,
+              ),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 720;
+                  final itemWidth = isWide
+                      ? (constraints.maxWidth - 12) / 2
+                      : constraints.maxWidth;
+                  return Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: karya
+                        .map(
+                          (item) => SizedBox(
+                            width: itemWidth,
+                            child: _KaryaCard(
+                              item: item,
+                              isAdmin: isAdmin,
+                              onEdit: () => showKaryaForm(
+                                context,
+                                controller,
+                                item: item,
+                              ),
+                              onDelete: () => _confirmDelete(
+                                title: 'Hapus karya ini?',
+                                successMessage: 'Karya berhasil dihapus.',
+                                onConfirm: () =>
+                                    controller.deleteKarya(item.id),
+                              ),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+              ),
+              const SizedBox(height: 24),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _ClassHero extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String badge;
+  final IconData icon;
+
+  const _ClassHero({
+    required this.title,
+    required this.subtitle,
+    required this.badge,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0B1E3B), Color(0xFF2C3E66), Color(0xFF21304A)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x2600142B),
+            blurRadius: 18,
+            offset: Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            top: -30,
+            right: -20,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: -20,
+            left: -10,
+            child: Container(
+              width: 70,
+              height: 70,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withOpacity(0.06),
+              ),
+            ),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(icon, color: Colors.white),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(color: Color(0xFFD6E0F5)),
+                    ),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        badge,
+                        style: const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
 class _PageHeader extends StatelessWidget {
   final String title;
   final String subtitle;

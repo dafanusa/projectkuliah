@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 
 import '../../../models/class_item.dart';
+import '../../../models/semester_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../hasil/controllers/hasil_controller.dart';
@@ -14,6 +15,7 @@ class ClassesController extends GetxController {
   final AuthService _authService = Get.find<AuthService>();
 
   final classes = <ClassItem>[].obs;
+  final semesters = <SemesterItem>[].obs;
   final enrolledClassIds = <String>{}.obs;
   final isLoading = false.obs;
   final isJoining = false.obs;
@@ -28,6 +30,7 @@ class ClassesController extends GetxController {
   Future<void> loadClasses() async {
     try {
       isLoading.value = true;
+      semesters.value = await _dataService.fetchSemesters();
       classes.value = await _dataService.fetchClasses();
       await _loadEnrollments();
     } finally {
@@ -35,11 +38,19 @@ class ClassesController extends GetxController {
     }
   }
 
-  Future<void> addClass(String name, {String? joinCode}) async {
+  Future<void> addClass(
+    String name, {
+    String? joinCode,
+    String? semesterId,
+  }) async {
     if (name.trim().isEmpty) {
       return;
     }
-    await _dataService.addClass(name.trim(), joinCode: joinCode);
+    await _dataService.addClass(
+      name.trim(),
+      joinCode: joinCode,
+      semesterId: semesterId,
+    );
     await loadClasses();
   }
 
@@ -48,11 +59,42 @@ class ClassesController extends GetxController {
     await loadClasses();
   }
 
-  Future<void> updateClass(String id, String name, {String? joinCode}) async {
+  Future<void> updateClass(
+    String id,
+    String name, {
+    String? joinCode,
+    String? semesterId,
+  }) async {
     if (name.trim().isEmpty) {
       return;
     }
-    await _dataService.updateClass(id, name.trim(), joinCode: joinCode);
+    await _dataService.updateClass(
+      id,
+      name.trim(),
+      joinCode: joinCode,
+      semesterId: semesterId,
+    );
+    await loadClasses();
+  }
+
+  Future<void> addSemester(String name) async {
+    if (name.trim().isEmpty) {
+      return;
+    }
+    await _dataService.addSemester(name.trim());
+    await loadClasses();
+  }
+
+  Future<void> updateSemester(String id, String name) async {
+    if (name.trim().isEmpty) {
+      return;
+    }
+    await _dataService.updateSemester(id, name.trim());
+    await loadClasses();
+  }
+
+  Future<void> deleteSemester(String id) async {
+    await _dataService.deleteSemester(id);
     await loadClasses();
   }
 

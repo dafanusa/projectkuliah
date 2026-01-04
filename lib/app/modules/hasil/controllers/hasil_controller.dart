@@ -11,6 +11,8 @@ class HasilController extends GetxController {
 
   final submissions = <AssignmentSubmission>[].obs;
   final isLoading = false.obs;
+  final searchQuery = ''.obs;
+  final semesterSearchQuery = ''.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 

@@ -22,6 +22,8 @@ class UjianController extends GetxController {
   final choices = <ExamChoice>[].obs;
   final myAttemptsByExamId = <String, List<ExamAttempt>>{}.obs;
   final myAttemptsClassId = ''.obs;
+  final searchQuery = ''.obs;
+  final semesterSearchQuery = ''.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 

@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/assignment_item.dart';
 import '../models/assignment_submission.dart';
 import '../models/class_item.dart';
+import '../models/semester_item.dart';
 import '../models/exam_item.dart';
 import '../models/exam_grade_item.dart';
 import '../models/exam_submission_item.dart';
@@ -24,28 +25,64 @@ class DataService {
 
   Future<List<ClassItem>> fetchClasses() async {
     final data =
-        await _client.from('classes').select('id,name,join_code').order('name');
+        await _client
+            .from('classes')
+            .select('id,name,join_code,semester_id,semesters(name)')
+            .order('name');
     return (data as List<dynamic>)
         .map((item) => ClassItem.fromMap(item as Map<String, dynamic>))
         .toList();
   }
 
-  Future<void> addClass(String name, {String? joinCode}) async {
+  Future<void> addClass(
+    String name, {
+    String? joinCode,
+    String? semesterId,
+  }) async {
     await _client.from('classes').insert({
       'name': name,
       'join_code': joinCode?.trim().isEmpty == true ? null : joinCode?.trim(),
+      'semester_id':
+          semesterId?.trim().isEmpty == true ? null : semesterId?.trim(),
     });
   }
 
-  Future<void> updateClass(String id, String name, {String? joinCode}) async {
+  Future<void> updateClass(
+    String id,
+    String name, {
+    String? joinCode,
+    String? semesterId,
+  }) async {
     await _client.from('classes').update({
       'name': name,
       'join_code': joinCode?.trim().isEmpty == true ? null : joinCode?.trim(),
+      'semester_id':
+          semesterId?.trim().isEmpty == true ? null : semesterId?.trim(),
     }).eq('id', id);
   }
 
   Future<void> deleteClass(String id) async {
     await _client.from('classes').delete().eq('id', id);
+  }
+
+  Future<List<SemesterItem>> fetchSemesters() async {
+    final data =
+        await _client.from('semesters').select('id,name').order('name');
+    return (data as List<dynamic>)
+        .map((item) => SemesterItem.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> addSemester(String name) async {
+    await _client.from('semesters').insert({'name': name});
+  }
+
+  Future<void> updateSemester(String id, String name) async {
+    await _client.from('semesters').update({'name': name}).eq('id', id);
+  }
+
+  Future<void> deleteSemester(String id) async {
+    await _client.from('semesters').delete().eq('id', id);
   }
 
   Future<List<String>> fetchEnrolledClassIds({

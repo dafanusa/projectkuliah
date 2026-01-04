@@ -19,6 +19,11 @@ class NilaiController extends GetxController {
   final exams = <ExamItem>[].obs;
   final isLoading = false.obs;
   final tabIndex = 0.obs;
+  final selectedSemesterId = ''.obs;
+  final searchQuery = ''.obs;
+  final searchExamQuery = ''.obs;
+  final semesterSearchQuery = ''.obs;
+  final semesterExamSearchQuery = ''.obs;
 
   bool get isAdmin => _authService.role.value == 'admin';
 
