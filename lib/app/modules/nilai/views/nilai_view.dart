@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../models/grade_item.dart';
+import '../../../models/exam_grade_item.dart';
+import '../../../models/class_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/admin_forms.dart';
+import '../../../widgets/class_access.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
@@ -12,6 +15,38 @@ import '../controllers/nilai_controller.dart';
 
 class NilaiView extends GetView<NilaiController> {
   const NilaiView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final tabIndex = controller.tabIndex.value;
+      Widget buildSwitcher() {
+        return _NilaiTabSwitcher(
+          currentIndex: tabIndex,
+          onChanged: (index) => controller.tabIndex.value = index,
+        );
+      }
+      return Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: tabIndex,
+              children: [
+                _NilaiTugasTab(headerBuilder: buildSwitcher),
+                _NilaiUjianTab(headerBuilder: buildSwitcher),
+              ],
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _NilaiTugasTab extends GetView<NilaiController> {
+  final Widget Function()? headerBuilder;
+
+  const _NilaiTugasTab({this.headerBuilder});
 
   @override
   Widget build(BuildContext context) {
@@ -40,12 +75,33 @@ class NilaiView extends GetView<NilaiController> {
           : (visibleItems.fold<int>(0, (sum, item) => sum + item.score) /
                   visibleItems.length)
               .round();
-      final hasUnassigned =
-          visibleItems.any((item) => item.classId == null || item.classId!.isEmpty);
+      final hasUnassigned = visibleItems.any(
+        (item) => item.classId == null || item.classId!.isEmpty,
+      );
       final countByClassId = <String, int>{};
       for (final item in visibleItems) {
         final classId = item.classId ?? '';
         countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
+
+      Future<void> handleClassTap(ClassItem classItem) async {
+        final isLocked = classesController.isClassLocked(classItem.id);
+        if (isLocked) {
+          final opened = await showJoinClassDialog(
+            controller: classesController,
+            classId: classItem.id,
+            className: classItem.name,
+          );
+          if (!opened) {
+            return;
+          }
+        }
+        Get.to(
+          () => NilaiClassView(
+            classId: classItem.id,
+            className: classItem.name,
+          ),
+        );
       }
 
       return RefreshIndicator(
@@ -74,7 +130,7 @@ class NilaiView extends GetView<NilaiController> {
               Reveal(
                 delayMs: 120,
                 child: _PageHeader(
-                  title: 'Nilai Mahasiswa',
+                  title: 'Nilai Tugas',
                   subtitle: 'Pantau performa kelas secara cepat.',
                   stats: [
                     _HeaderStat(label: 'Rata-rata', value: average.toString()),
@@ -82,6 +138,13 @@ class NilaiView extends GetView<NilaiController> {
                   ],
                 ),
               ),
+              if (headerBuilder != null) ...[
+                const SizedBox(height: 12),
+                ResponsiveCenter(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: headerBuilder!(),
+                ),
+              ],
               const SizedBox(height: 16),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 250),
@@ -111,9 +174,6 @@ class NilaiView extends GetView<NilaiController> {
                       for (final entry in classes.asMap().entries) {
                         final classItem = entry.value;
                         final count = countByClassId[classItem.id] ?? 0;
-                        if (!isAdmin && count == 0) {
-                          continue;
-                        }
                         tiles.add(
                           Reveal(
                             delayMs: 140 + entry.key * 70,
@@ -123,12 +183,11 @@ class NilaiView extends GetView<NilaiController> {
                                 title: classItem.name,
                                 subtitle: '$count nilai',
                                 icon: Icons.score_rounded,
-                                onTap: () => Get.to(
-                                  () => NilaiClassView(
-                                    classId: classItem.id,
-                                    className: classItem.name,
-                                  ),
-                                ),
+                                isLocked:
+                                    !isAdmin &&
+                                    classesController
+                                        .isClassLocked(classItem.id),
+                                onTap: () => handleClassTap(classItem),
                               ),
                             ),
                           ),
@@ -150,6 +209,7 @@ class NilaiView extends GetView<NilaiController> {
                                     className: 'Tanpa Kelas',
                                   ),
                                 ),
+                                isLocked: false,
                               ),
                             ),
                           ),
@@ -169,6 +229,277 @@ class NilaiView extends GetView<NilaiController> {
         ),
       );
     });
+  }
+}
+
+class _NilaiUjianTab extends GetView<NilaiController> {
+  final Widget Function()? headerBuilder;
+
+  const _NilaiUjianTab({this.headerBuilder});
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
+    return Obx(() {
+      final items = controller.nilaiUjian.toList();
+      final isAdmin = authService.role.value == 'admin';
+      final userName = authService.name.value.trim();
+      final userId = authService.user.value?.id;
+      final visibleItems = isAdmin
+          ? items
+          : items
+              .where(
+                (item) {
+                  if (userId != null &&
+                      item.studentId != null &&
+                      item.studentId == userId) {
+                    return true;
+                  }
+                  return userName.isNotEmpty &&
+                      item.studentName.toLowerCase() ==
+                          userName.toLowerCase();
+                },
+              )
+              .toList();
+      final isLoading = controller.isLoading.value;
+      final classes = classesController.classes.toList();
+      final totalCount = isAdmin ? items.length : visibleItems.length;
+      final average = visibleItems.isEmpty
+          ? 0
+          : (visibleItems.fold<int>(0, (sum, item) => sum + item.score) /
+                  visibleItems.length)
+              .round();
+      final hasUnassigned = visibleItems.any(
+        (item) => item.classId == null || item.classId!.isEmpty,
+      );
+      final countByClassId = <String, int>{};
+      for (final item in visibleItems) {
+        final classId = item.classId ?? '';
+        countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
+
+      Future<void> handleClassTap(ClassItem classItem) async {
+        final isLocked = classesController.isClassLocked(classItem.id);
+        if (isLocked) {
+          final opened = await showJoinClassDialog(
+            controller: classesController,
+            classId: classItem.id,
+            className: classItem.name,
+          );
+          if (!opened) {
+            return;
+          }
+        }
+        Get.to(
+          () => NilaiUjianClassView(
+            classId: classItem.id,
+            className: classItem.name,
+          ),
+        );
+      }
+
+      return RefreshIndicator(
+        onRefresh: controller.loadAll,
+        child: ResponsiveCenter(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              if (authService.role.value == 'admin')
+                Reveal(
+                  delayMs: 50,
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Nilai Ujian',
+                      subtitle: 'Tambah atau koreksi nilai ujian.',
+                      actionLabel: 'Tambah Nilai',
+                      onTap: () => showNilaiUjianForm(
+                        context,
+                        controller,
+                        classesController,
+                      ),
+                    ),
+                  ),
+                ),
+              Reveal(
+                delayMs: 120,
+                child: _PageHeader(
+                  title: 'Nilai Ujian',
+                  subtitle: 'Pantau performa ujian secara cepat.',
+                  stats: [
+                    _HeaderStat(label: 'Rata-rata', value: average.toString()),
+                    _HeaderStat(label: 'Jumlah', value: totalCount.toString()),
+                  ],
+                ),
+              ),
+              if (headerBuilder != null) ...[
+                const SizedBox(height: 12),
+                ResponsiveCenter(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: headerBuilder!(),
+                ),
+              ],
+              const SizedBox(height: 16),
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                child: () {
+                  final isEmpty = isAdmin
+                      ? items.isEmpty && classes.isEmpty
+                      : visibleItems.isEmpty;
+                  if (isLoading && isEmpty) {
+                    return const SizedBox(
+                      height: 180,
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (isEmpty) {
+                    return const _EmptyState(
+                      title: 'Belum ada nilai ujian',
+                      subtitle: 'Nilai ujian akan tampil di sini.',
+                    );
+                  }
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isWide = constraints.maxWidth > 720;
+                      final itemWidth = isWide
+                          ? (constraints.maxWidth - 12) / 2
+                          : constraints.maxWidth;
+                      final tiles = <Widget>[];
+                      for (final entry in classes.asMap().entries) {
+                        final classItem = entry.value;
+                        final count = countByClassId[classItem.id] ?? 0;
+                        tiles.add(
+                          Reveal(
+                            delayMs: 140 + entry.key * 70,
+                            child: SizedBox(
+                              width: itemWidth,
+                              child: _ClassCard(
+                                title: classItem.name,
+                                subtitle: '$count nilai',
+                                icon: Icons.emoji_events_rounded,
+                                isLocked:
+                                    !isAdmin &&
+                                    classesController
+                                        .isClassLocked(classItem.id),
+                                onTap: () => handleClassTap(classItem),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      if (hasUnassigned) {
+                        tiles.add(
+                          Reveal(
+                            delayMs: 140 + tiles.length * 70,
+                            child: SizedBox(
+                              width: itemWidth,
+                              child: _ClassCard(
+                                title: 'Tanpa Kelas',
+                                subtitle:
+                                    '${countByClassId[''] ?? 0} nilai',
+                                icon: Icons.folder_off_rounded,
+                                onTap: () => Get.to(
+                                  () => const NilaiUjianClassView(
+                                    classId: null,
+                                    className: 'Tanpa Kelas',
+                                  ),
+                                ),
+                                isLocked: false,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Wrap(
+                        spacing: 12,
+                        runSpacing: 12,
+                        children: tiles,
+                      );
+                    },
+                  );
+                }(),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+}
+
+class _NilaiTabSwitcher extends StatelessWidget {
+  final int currentIndex;
+  final ValueChanged<int> onChanged;
+
+  const _NilaiTabSwitcher({
+    required this.currentIndex,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8ECF5),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          _TabButton(
+            label: 'Tugas',
+            isActive: currentIndex == 0,
+            onTap: () => onChanged(0),
+          ),
+          const SizedBox(width: 6),
+          _TabButton(
+            label: 'Ujian',
+            isActive: currentIndex == 1,
+            onTap: () => onChanged(1),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final bool isActive;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.isActive,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? AppColors.navy : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isActive ? Colors.white : AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -340,12 +671,14 @@ class _ClassCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool isLocked;
 
   const _ClassCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    required this.isLocked,
   });
 
   @override
@@ -364,7 +697,10 @@ class _ClassCard extends StatelessWidget {
                   color: const Color(0xFFE8ECF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.navy),
+                child: Icon(
+                  icon,
+                  color: isLocked ? AppColors.textSecondary : AppColors.navy,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -383,7 +719,10 @@ class _ClassCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              Icon(
+                isLocked ? Icons.lock_rounded : Icons.chevron_right_rounded,
+                color: isLocked ? AppColors.textSecondary : null,
+              ),
             ],
           ),
         ),
@@ -588,6 +927,208 @@ class NilaiClassView extends GetView<NilaiController> {
   }
 }
 
+class NilaiUjianClassView extends GetView<NilaiController> {
+  final String? classId;
+  final String className;
+
+  const NilaiUjianClassView({
+    super.key,
+    required this.classId,
+    required this.className,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final authService = Get.find<AuthService>();
+    final classesController = Get.find<ClassesController>();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Nilai Ujian $className')),
+      body: Obx(() {
+        final isAdmin = authService.role.value == 'admin';
+        final userName = authService.name.value.trim();
+        final userId = authService.user.value?.id;
+        final items = controller.nilaiUjian.where((item) {
+          if (classId == null || classId!.isEmpty) {
+            return item.classId == null || item.classId!.isEmpty;
+          }
+          return item.classId == classId;
+        }).where((item) {
+          if (isAdmin) {
+            return true;
+          }
+          if (userId != null &&
+              item.studentId != null &&
+              item.studentId == userId) {
+            return true;
+          }
+          return userName.isNotEmpty &&
+              item.studentName.toLowerCase() == userName.toLowerCase();
+        }).toList();
+        final isLoading = controller.isLoading.value;
+        final average = items.isEmpty
+            ? 0
+            : (items.fold<int>(0, (sum, item) => sum + item.score) /
+                    items.length)
+                .round();
+
+        return RefreshIndicator(
+          onRefresh: controller.loadAll,
+          child: ResponsiveCenter(
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: [
+                if (isAdmin)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _AdminPanel(
+                      title: 'Kelola Nilai Ujian',
+                      subtitle: 'Atur nilai ujian untuk $className.',
+                      actionLabel: 'Tambah Nilai',
+                      onTap: () => showNilaiUjianForm(
+                        context,
+                        controller,
+                        classesController,
+                        fixedClassId: classId,
+                        fixedClassName: className,
+                      ),
+                    ),
+                  ),
+                _PageHeader(
+                  title: 'Nilai Ujian $className',
+                  subtitle: 'Pantau performa ujian secara cepat.',
+                  stats: [
+                    _HeaderStat(label: 'Rata-rata', value: average.toString()),
+                    _HeaderStat(label: 'Jumlah', value: items.length.toString()),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: isLoading && items.isEmpty
+                      ? const SizedBox(
+                          height: 180,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      : items.isEmpty
+                          ? const _EmptyState(
+                              title: 'Belum ada nilai ujian',
+                              subtitle: 'Nilai ujian akan tampil di sini.',
+                            )
+                          : LayoutBuilder(
+                              builder: (context, constraints) {
+                                final useCards = constraints.maxWidth < 720;
+                                if (useCards) {
+                                  return Column(
+                                    children: items
+                                        .map(
+                                          (item) => Padding(
+                                            padding:
+                                                const EdgeInsets.only(bottom: 12),
+                                            child: _NilaiUjianCard(
+                                              item: item,
+                                              isAdmin: isAdmin,
+                                              onEdit: () => showNilaiUjianForm(
+                                                context,
+                                                controller,
+                                                classesController,
+                                                item: item,
+                                                fixedClassId: classId,
+                                                fixedClassName: className,
+                                              ),
+                                              onDelete: () => _confirmDelete(
+                                                title: 'Hapus nilai ujian ini?',
+                                                successMessage:
+                                                    'Nilai ujian berhasil dihapus.',
+                                                onConfirm: () =>
+                                                    controller.deleteExamGrade(
+                                                  item.id,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                        .toList(),
+                                  );
+                                }
+                                return Card(
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    child: DataTable(
+                                      headingRowColor: MaterialStateProperty.all(
+                                        const Color(0xFFE8ECF5),
+                                      ),
+                                      columns: const [
+                                        DataColumn(label: Text('Mahasiswa')),
+                                        DataColumn(label: Text('Kelas')),
+                                        DataColumn(label: Text('Ujian')),
+                                        DataColumn(label: Text('Nilai')),
+                                        DataColumn(label: Text('Aksi')),
+                                      ],
+                                      rows: items
+                                          .map(
+                                            (item) => DataRow(
+                                              cells: [
+                                                DataCell(Text(item.studentName)),
+                                                DataCell(Text(item.className ?? '-')),
+                                                DataCell(
+                                                    Text(item.examTitle ?? '-')),
+                                                DataCell(Text(item.score.toString())),
+                                                DataCell(
+                                                  isAdmin
+                                                      ? Row(
+                                                          children: [
+                                                            IconButton(
+                                                              onPressed: () =>
+                                                                  showNilaiUjianForm(
+                                                                context,
+                                                                controller,
+                                                                classesController,
+                                                                item: item,
+                                                              ),
+                                                              icon: const Icon(
+                                                                  Icons.edit_rounded),
+                                                            ),
+                                                            IconButton(
+                                                              onPressed: () =>
+                                                                  _confirmDelete(
+                                                                title:
+                                                                    'Hapus nilai ujian ini?',
+                                                                successMessage:
+                                                                    'Nilai ujian berhasil dihapus.',
+                                                                onConfirm: () =>
+                                                                    controller
+                                                                        .deleteExamGrade(
+                                                                  item.id,
+                                                                ),
+                                                              ),
+                                                              icon: const Icon(
+                                                                  Icons.delete_rounded,
+                                                                  color: Colors.red),
+                                                            ),
+                                                          ],
+                                                        )
+                                                      : const SizedBox.shrink(),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                          .toList(),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
+
 class _NilaiCard extends StatelessWidget {
   final GradeItem item;
   final bool isAdmin;
@@ -624,6 +1165,92 @@ class _NilaiCard extends StatelessWidget {
                       Text('Kelas: ${item.className ?? '-'}'),
                       const SizedBox(height: 4),
                       Text('Tugas: ${item.assignmentTitle ?? '-'}'),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8ECF5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    item.score.toString(),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.navy,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (isAdmin) ...[
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: onEdit,
+                    icon: const Icon(Icons.edit_rounded, size: 16),
+                    label: const Text('Ubah'),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed: onDelete,
+                    icon: const Icon(Icons.delete_rounded, size: 16),
+                    label: const Text('Hapus'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NilaiUjianCard extends StatelessWidget {
+  final ExamGradeItem item;
+  final bool isAdmin;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _NilaiUjianCard({
+    required this.item,
+    required this.isAdmin,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.studentName,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text('Kelas: ${item.className ?? '-'}'),
+                      const SizedBox(height: 4),
+                      Text('Ujian: ${item.examTitle ?? '-'}'),
                     ],
                   ),
                 ),

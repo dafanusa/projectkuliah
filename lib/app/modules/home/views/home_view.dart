@@ -11,8 +11,10 @@ import '../../materi/controllers/materi_controller.dart';
 import '../../navigation/controllers/navigation_controller.dart';
 import '../../nilai/controllers/nilai_controller.dart';
 import '../../tugas/controllers/tugas_controller.dart';
+import '../../ujian/controllers/ujian_controller.dart';
 import '../controllers/home_controller.dart';
 import '../../../models/assignment_item.dart';
+import '../../../models/exam_item.dart';
 import '../../../models/grade_item.dart';
 import '../../../models/material_item.dart';
 
@@ -24,6 +26,7 @@ class HomeView extends GetView<HomeController> {
     final authService = Get.find<AuthService>();
     final materiController = Get.find<MateriController>();
     final tugasController = Get.find<TugasController>();
+    final ujianController = Get.find<UjianController>();
     final hasilController = Get.find<HasilController>();
     final nilaiController = Get.find<NilaiController>();
     final classesController = Get.find<ClassesController>();
@@ -31,10 +34,33 @@ class HomeView extends GetView<HomeController> {
 
     return Obx(() {
       final isAdmin = authService.role.value == 'admin';
-      final materi = materiController.materi.toList();
-      final tugas = tugasController.tugas.toList();
-      final submissions = hasilController.submissions.toList();
-      final nilai = nilaiController.nilai.toList();
+      final enrolledClassIds = classesController.enrolledClassIds.toSet();
+      bool isAccessibleClass(String? classId) {
+        if (isAdmin) {
+          return true;
+        }
+        final id = classId ?? '';
+        if (id.isEmpty) {
+          return false;
+        }
+        return enrolledClassIds.contains(id);
+      }
+
+      final materi = materiController.materi
+          .where((item) => isAccessibleClass(item.classId))
+          .toList();
+      final tugas = tugasController.tugas
+          .where((item) => isAccessibleClass(item.classId))
+          .toList();
+      final ujian = ujianController.ujian
+          .where((item) => isAccessibleClass(item.classId))
+          .toList();
+      final submissions = hasilController.submissions
+          .where((item) => isAccessibleClass(item.classId))
+          .toList();
+      final nilai = nilaiController.nilai
+          .where((item) => isAccessibleClass(item.classId))
+          .toList();
       final userName = authService.name.value.trim();
       final visibleNilai = isAdmin
           ? nilai
@@ -77,11 +103,16 @@ class HomeView extends GetView<HomeController> {
         });
       final latestMateri = recentMateri.take(3).toList();
 
+      final upcomingUjian = List.of(ujian)
+        ..retainWhere((item) => item.endAt.isAfter(now))
+        ..sort((a, b) => a.startAt.compareTo(b.startAt));
+
       return RefreshIndicator(
         onRefresh: () async {
           await Future.wait([
             materiController.loadMateri(),
             tugasController.loadTugas(),
+            ujianController.loadUjian(),
             hasilController.loadAll(),
             nilaiController.loadAll(),
           ]);
@@ -184,13 +215,14 @@ class HomeView extends GetView<HomeController> {
                       SizedBox(
                         width: itemWidth,
                         child: _ActionCard(
-                          title: 'Kelola Hasil',
-                          subtitle: 'Pantau pengumpulan',
-                          icon: Icons.fact_check_rounded,
-                          onTap: () {
-                            tugasController.tabIndex.value = 1;
-                            navController.changeIndex(2);
-                          },
+                          title: 'Tambah Ujian',
+                          subtitle: 'Atur jadwal ujian',
+                          icon: Icons.quiz_rounded,
+                          onTap: () => showUjianForm(
+                            context,
+                            ujianController,
+                            classesController,
+                          ),
                         ),
                       ),
                       SizedBox(
@@ -212,38 +244,6 @@ class HomeView extends GetView<HomeController> {
               ),
               const SizedBox(height: 20),
             ],
-            _SectionHeader(
-              title: 'Tugas Terdekat',
-              actionLabel: 'Kelola Tugas',
-              onAction: () => navController.changeIndex(2),
-            ),
-            const SizedBox(height: 12),
-            if (upcomingTugas.isEmpty)
-              const _EmptyCard(
-                title: 'Belum ada tugas',
-                subtitle: 'Tugas yang aktif akan muncul di sini.',
-              )
-            else
-              ...upcomingTugas.take(3).map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _TugasTile(
-                    item: item,
-                    isAdmin: isAdmin,
-                    onEdit: () => showTugasForm(
-                      context,
-                      tugasController,
-                      classesController,
-                      item: item,
-                    ),
-                    onDelete: () => _confirmDelete(
-                      title: 'Hapus tugas ini?',
-                      onConfirm: () => tugasController.deleteTugas(item.id),
-                    ),
-                  ),
-                ),
-              ),
-            const SizedBox(height: 20),
             _SectionHeader(
               title: 'Materi Terbaru',
               actionLabel: 'Kelola Materi',
@@ -277,6 +277,73 @@ class HomeView extends GetView<HomeController> {
               ),
             const SizedBox(height: 20),
             _SectionHeader(
+              title: 'Tugas Terdekat',
+              actionLabel: 'Kelola Tugas',
+              onAction: () => navController.changeIndex(2),
+            ),
+            const SizedBox(height: 12),
+            if (upcomingTugas.isEmpty)
+              const _EmptyCard(
+                title: 'Belum ada tugas',
+                subtitle: 'Tugas yang aktif akan muncul di sini.',
+              )
+            else
+              ...upcomingTugas.take(3).map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _TugasTile(
+                    item: item,
+                    isAdmin: isAdmin,
+                    onEdit: () => showTugasForm(
+                      context,
+                      tugasController,
+                      classesController,
+                      item: item,
+                    ),
+                    onDelete: () => _confirmDelete(
+                      title: 'Hapus tugas ini?',
+                      onConfirm: () => tugasController.deleteTugas(item.id),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
+            _SectionHeader(
+              title: 'Ujian Terdekat',
+              actionLabel: 'Kelola Ujian',
+              onAction: () {
+                tugasController.tabIndex.value = 2;
+                navController.changeIndex(2);
+              },
+            ),
+            const SizedBox(height: 12),
+            if (upcomingUjian.isEmpty)
+              const _EmptyCard(
+                title: 'Belum ada ujian',
+                subtitle: 'Ujian yang aktif akan muncul di sini.',
+              )
+            else
+              ...upcomingUjian.take(3).map(
+                (item) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _UjianTile(
+                    item: item,
+                    isAdmin: isAdmin,
+                    onEdit: () => showUjianForm(
+                      context,
+                      ujianController,
+                      classesController,
+                      item: item,
+                    ),
+                    onDelete: () => _confirmDelete(
+                      title: 'Hapus ujian ini?',
+                      onConfirm: () => ujianController.deleteUjian(item.id),
+                    ),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 20),
+            _SectionHeader(
               title: 'Ringkasan Pengumpulan',
               actionLabel: 'Lihat Hasil',
               onAction: () {
@@ -290,7 +357,7 @@ class HomeView extends GetView<HomeController> {
               onTime: totalOnTime,
               late: totalLate,
               onTap: () {
-                tugasController.tabIndex.value = 1;
+                tugasController.tabIndex.value = 2;
                 navController.changeIndex(2);
               },
             ),
@@ -871,6 +938,87 @@ class _MateriTile extends StatelessWidget {
               children: [
                 _InfoPill(label: 'Tanggal', value: dateLabel),
                 _InfoPill(label: 'Pertemuan', value: item.meeting),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UjianTile extends StatelessWidget {
+  final ExamItem item;
+  final bool isAdmin;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _UjianTile({
+    required this.item,
+    required this.isAdmin,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final startLabel = DateFormat('dd MMM yyyy - HH:mm').format(item.startAt);
+    final endLabel = DateFormat('dd MMM yyyy - HH:mm').format(item.endAt);
+    final now = DateTime.now();
+    final statusLabel = now.isBefore(item.startAt)
+        ? 'Belum mulai'
+        : (now.isAfter(item.endAt) ? 'Berakhir' : 'Aktif');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(item.description),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Kelas: ${item.className ?? '-'}',
+                        style: const TextStyle(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+                if (isAdmin)
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: onEdit,
+                        icon: const Icon(Icons.edit_rounded),
+                      ),
+                      IconButton(
+                        onPressed: onDelete,
+                        icon: const Icon(Icons.delete_rounded, color: Colors.red),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _InfoPill(label: 'Mulai', value: startLabel),
+                _InfoPill(label: 'Selesai', value: endLabel),
+                _InfoPill(label: 'Status', value: statusLabel),
               ],
             ),
           ],

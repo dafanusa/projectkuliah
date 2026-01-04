@@ -8,6 +8,7 @@ import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/admin_forms.dart';
+import '../../../widgets/class_access.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
@@ -23,6 +24,7 @@ class MateriView extends GetView<MateriController> {
     final classesController = Get.find<ClassesController>();
 
     return Obx(() {
+      final isAdmin = authService.role.value == 'admin';
       final items = controller.materi.toList();
       final isLoading = controller.isLoading.value;
       final classes = classesController.classes.toList();
@@ -32,6 +34,26 @@ class MateriView extends GetView<MateriController> {
       for (final item in items) {
         final classId = item.classId ?? '';
         countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
+
+      Future<void> handleClassTap(ClassItem classItem) async {
+        final isLocked = classesController.isClassLocked(classItem.id);
+        if (isLocked) {
+          final opened = await showJoinClassDialog(
+            controller: classesController,
+            classId: classItem.id,
+            className: classItem.name,
+          );
+          if (!opened) {
+            return;
+          }
+        }
+        Get.to(
+          () => MateriClassView(
+            classId: classItem.id,
+            className: classItem.name,
+          ),
+        );
       }
 
       return RefreshIndicator(
@@ -76,6 +98,9 @@ class MateriView extends GetView<MateriController> {
                   classes: classes,
                   hasUnassigned: hasUnassigned,
                   countByClassId: countByClassId,
+                  isAdmin: isAdmin,
+                  isLocked: classesController.isClassLocked,
+                  onClassTap: handleClassTap,
                 ),
               ),
             ],
@@ -92,6 +117,9 @@ class _MateriSection extends StatelessWidget {
   final List<ClassItem> classes;
   final bool hasUnassigned;
   final Map<String, int> countByClassId;
+  final bool isAdmin;
+  final bool Function(String classId) isLocked;
+  final Future<void> Function(ClassItem classItem) onClassTap;
 
   const _MateriSection({
     required this.isLoading,
@@ -99,6 +127,9 @@ class _MateriSection extends StatelessWidget {
     required this.classes,
     required this.hasUnassigned,
     required this.countByClassId,
+    required this.isAdmin,
+    required this.isLocked,
+    required this.onClassTap,
   });
 
   @override
@@ -134,12 +165,8 @@ class _MateriSection extends StatelessWidget {
                   title: classItem.name,
                   subtitle: '$count materi',
                   icon: Icons.menu_book_rounded,
-                  onTap: () => Get.to(
-                    () => MateriClassView(
-                      classId: classItem.id,
-                      className: classItem.name,
-                    ),
-                  ),
+                  isLocked: !isAdmin && isLocked(classItem.id),
+                  onTap: () => onClassTap(classItem),
                 ),
               ),
             ),
@@ -161,6 +188,7 @@ class _MateriSection extends StatelessWidget {
                       className: 'Tanpa Kelas',
                     ),
                   ),
+                  isLocked: false,
                 ),
               ),
             ),
@@ -328,12 +356,14 @@ class _ClassCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool isLocked;
 
   const _ClassCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    required this.isLocked,
   });
 
   @override
@@ -352,7 +382,10 @@ class _ClassCard extends StatelessWidget {
                   color: const Color(0xFFE8ECF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.navy),
+                child: Icon(
+                  icon,
+                  color: isLocked ? AppColors.textSecondary : AppColors.navy,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -371,7 +404,10 @@ class _ClassCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              Icon(
+                isLocked ? Icons.lock_rounded : Icons.chevron_right_rounded,
+                color: isLocked ? AppColors.textSecondary : null,
+              ),
             ],
           ),
         ),

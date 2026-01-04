@@ -42,7 +42,7 @@ class NavigationView extends GetView<NavigationController> {
       final authService = Get.find<AuthService>();
       final displayName = authService.name.value.isEmpty
           ? (authService.role.value == 'admin' ? 'Admin' : 'Mahasiswa')
-          : authService.name.value;
+          : authService.name.value.trim().split(' ').first;
       final roleLabel =
           authService.role.value == 'admin' ? 'Administrator' : 'Mahasiswa';
       final isProfileLoading = authService.isProfileLoading.value;
@@ -231,13 +231,36 @@ class NavigationView extends GetView<NavigationController> {
                             Padding(
                               padding:
                                   const EdgeInsets.fromLTRB(12, 4, 12, 16),
-                              child: _SidebarAction(
-                                label: 'Logout',
-                                icon: Icons.logout_rounded,
-                                onTap: () {
-                                  Get.offAllNamed(Routes.welcome);
-                                  authService.signOut();
-                                },
+                              child: Column(
+                                children: [
+                                  const Text(
+                                    '© 2026',
+                                    style: TextStyle(
+                                      color: Color(0xFFD6E0F5),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  const Text(
+                                    'Developed by Rizqullah Dafa Nusa',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: Color(0xFFD6E0F5),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _SidebarAction(
+                                    label: 'Logout',
+                                    icon: Icons.logout_rounded,
+                                    onTap: () {
+                                      Get.offAllNamed(Routes.welcome);
+                                      authService.signOut();
+                                    },
+                                  ),
+                                ],
                               ),
                             ),
                           ],

@@ -5,8 +5,10 @@ import 'package:mvbtummaplikasi/app/services/data_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/assignment_submission.dart';
+import '../../../models/class_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../theme/app_colors.dart';
+import '../../../widgets/class_access.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
@@ -52,6 +54,26 @@ class _HasilViewState extends State<HasilView> {
       for (final item in submissions) {
         final classId = item.classId ?? '';
         countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
+
+      Future<void> handleClassTap(ClassItem classItem) async {
+        final isLocked = classesController.isClassLocked(classItem.id);
+        if (isLocked) {
+          final opened = await showJoinClassDialog(
+            controller: classesController,
+            classId: classItem.id,
+            className: classItem.name,
+          );
+          if (!opened) {
+            return;
+          }
+        }
+        Get.to(
+          () => HasilClassView(
+            classId: classItem.id,
+            className: classItem.name,
+          ),
+        );
       }
 
       return RefreshIndicator(
@@ -143,12 +165,10 @@ class _HasilViewState extends State<HasilView> {
                                         title: classItem.name,
                                         subtitle: '$count jawaban',
                                         icon: Icons.fact_check_rounded,
-                                        onTap: () => Get.to(
-                                          () => HasilClassView(
-                                            classId: classItem.id,
-                                            className: classItem.name,
-                                          ),
-                                        ),
+                                        isLocked: !isAdmin &&
+                                            classesController
+                                                .isClassLocked(classItem.id),
+                                        onTap: () => handleClassTap(classItem),
                                       ),
                                     ),
                                   ),
@@ -171,6 +191,7 @@ class _HasilViewState extends State<HasilView> {
                                             className: 'Tanpa Kelas',
                                           ),
                                         ),
+                                        isLocked: false,
                                       ),
                                     ),
                                   ),
@@ -298,12 +319,14 @@ class _ClassCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool isLocked;
 
   const _ClassCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    required this.isLocked,
   });
 
   @override
@@ -322,7 +345,10 @@ class _ClassCard extends StatelessWidget {
                   color: const Color(0xFFE8ECF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.navy),
+                child: Icon(
+                  icon,
+                  color: isLocked ? AppColors.textSecondary : AppColors.navy,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -341,7 +367,10 @@ class _ClassCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              Icon(
+                isLocked ? Icons.lock_rounded : Icons.chevron_right_rounded,
+                color: isLocked ? AppColors.textSecondary : null,
+              ),
             ],
           ),
         ),

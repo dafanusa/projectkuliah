@@ -67,9 +67,49 @@ class ProfileView extends GetView<ProfileController> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            Builder(
+              builder: (context) {
+                final isWide = MediaQuery.of(context).size.width >= 900;
+                if (isWide) {
+                  return const SizedBox.shrink();
+                }
+                return const _FooterCredit();
+              },
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _FooterCredit extends StatelessWidget {
+  const _FooterCredit();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: const [
+        Text(
+          '© 2026',
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        SizedBox(height: 4),
+        Text(
+          'Developed by Rizqullah Dafa Nusa',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -346,12 +386,35 @@ class _ClassSection extends StatelessWidget {
                               ),
                               child: Row(
                                 children: [
-                                  Expanded(child: Text(item.name)),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(item.name),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          item.joinCode.isEmpty
+                                              ? 'Kode: belum diatur'
+                                              : 'Kode: ${item.joinCode}',
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   IconButton(
                                     icon: const Icon(Icons.edit_rounded,
                                         color: AppColors.navy),
                                     onPressed: () =>
-                                        _openEditClassDialog(classesController, item.id, item.name),
+                                        _openEditClassDialog(
+                                      classesController,
+                                      item.id,
+                                      item.name,
+                                      item.joinCode,
+                                    ),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.delete_rounded,
@@ -384,18 +447,30 @@ class _ClassSection extends StatelessWidget {
 
 Future<void> _openAddClassDialog(ClassesController controller) async {
   final nameController = TextEditingController();
+  final codeController = TextEditingController();
   await Get.dialog(
     AlertDialog(
       title: const Text('Tambah Kelas'),
-      content: TextField(
-        controller: nameController,
-        decoration: const InputDecoration(labelText: 'Nama Kelas'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Nama Kelas'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: codeController,
+            decoration: const InputDecoration(labelText: 'Kode Kelas'),
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Batal')),
         ElevatedButton(
           onPressed: () async {
             final name = nameController.text.trim();
+            final joinCode = codeController.text.trim();
             if (name.isEmpty) {
               Get.snackbar(
                 'Gagal',
@@ -405,7 +480,16 @@ Future<void> _openAddClassDialog(ClassesController controller) async {
               );
               return;
             }
-            await controller.addClass(name);
+            if (joinCode.isEmpty) {
+              Get.snackbar(
+                'Gagal',
+                'Kode kelas wajib diisi.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+              );
+              return;
+            }
+            await controller.addClass(name, joinCode: joinCode);
             Get.back();
             Future.microtask(() {
               Get.snackbar(
@@ -428,20 +512,33 @@ Future<void> _openEditClassDialog(
   ClassesController controller,
   String id,
   String currentName,
+  String currentCode,
 ) async {
   final nameController = TextEditingController(text: currentName);
+  final codeController = TextEditingController(text: currentCode);
   await Get.dialog(
     AlertDialog(
-      title: const Text('Ubah Nama Kelas'),
-      content: TextField(
-        controller: nameController,
-        decoration: const InputDecoration(labelText: 'Nama Kelas'),
+      title: const Text('Ubah Kelas'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: nameController,
+            decoration: const InputDecoration(labelText: 'Nama Kelas'),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: codeController,
+            decoration: const InputDecoration(labelText: 'Kode Kelas'),
+          ),
+        ],
       ),
       actions: [
         TextButton(onPressed: () => Get.back(), child: const Text('Batal')),
         ElevatedButton(
           onPressed: () async {
             final name = nameController.text.trim();
+            final joinCode = codeController.text.trim();
             if (name.isEmpty) {
               Get.snackbar(
                 'Gagal',
@@ -451,12 +548,21 @@ Future<void> _openEditClassDialog(
               );
               return;
             }
-            await controller.updateClass(id, name);
+            if (joinCode.isEmpty) {
+              Get.snackbar(
+                'Gagal',
+                'Kode kelas wajib diisi.',
+                backgroundColor: AppColors.navy,
+                colorText: Colors.white,
+              );
+              return;
+            }
+            await controller.updateClass(id, name, joinCode: joinCode);
             Get.back();
             Future.microtask(() {
               Get.snackbar(
                 'Berhasil',
-                'Nama kelas berhasil diperbarui.',
+                'Kelas berhasil diperbarui.',
                 backgroundColor: AppColors.navy,
                 colorText: Colors.white,
                 snackPosition: SnackPosition.TOP,

@@ -6,16 +6,19 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../models/assignment_item.dart';
 import '../../../models/assignment_submission.dart';
+import '../../../models/class_item.dart';
 import '../../../models/student_item.dart';
 import '../../../services/auth_service.dart';
 import '../../../services/data_service.dart';
 import '../../../theme/app_colors.dart';
 import '../../../widgets/admin_forms.dart';
+import '../../../widgets/class_access.dart';
 import '../../../widgets/responsive_center.dart';
 import '../../../widgets/reveal.dart';
 import '../../classes/controllers/classes_controller.dart';
 import '../../hasil/controllers/hasil_controller.dart';
 import '../../hasil/views/hasil_view.dart';
+import '../../ujian/views/ujian_view.dart';
 import '../controllers/tugas_controller.dart';
 
 class TugasView extends GetView<TugasController> {
@@ -31,7 +34,7 @@ class TugasView extends GetView<TugasController> {
           currentIndex: tabIndex,
           onChanged: (index) {
             controller.tabIndex.value = index;
-            if (index == 1) {
+            if (index == 2) {
               hasilController.loadAll();
             }
           },
@@ -44,6 +47,7 @@ class TugasView extends GetView<TugasController> {
               index: tabIndex,
               children: [
                 _TugasTab(headerBuilder: buildSwitcher),
+                _UjianTab(headerBuilder: buildSwitcher),
                 HasilView(headerBuilder: buildSwitcher),
               ],
             ),
@@ -65,6 +69,7 @@ class _TugasTab extends GetView<TugasController> {
     final classesController = Get.find<ClassesController>();
 
     return Obx(() {
+      final isAdmin = authService.role.value == 'admin';
       final items = controller.tugas.toList();
       final isLoading = controller.isLoading.value;
       final now = DateTime.now();
@@ -77,6 +82,26 @@ class _TugasTab extends GetView<TugasController> {
       for (final item in items) {
         final classId = item.classId ?? '';
         countByClassId[classId] = (countByClassId[classId] ?? 0) + 1;
+      }
+
+      Future<void> handleClassTap(ClassItem classItem) async {
+        final isLocked = classesController.isClassLocked(classItem.id);
+        if (isLocked) {
+          final opened = await showJoinClassDialog(
+            controller: classesController,
+            classId: classItem.id,
+            className: classItem.name,
+          );
+          if (!opened) {
+            return;
+          }
+        }
+        Get.to(
+          () => TugasClassView(
+            classId: classItem.id,
+            className: classItem.name,
+          ),
+        );
       }
 
       return RefreshIndicator(
@@ -154,12 +179,11 @@ class _TugasTab extends GetView<TugasController> {
                                         title: classItem.name,
                                         subtitle: '$count tugas',
                                         icon: Icons.assignment_rounded,
-                                        onTap: () => Get.to(
-                                          () => TugasClassView(
-                                            classId: classItem.id,
-                                            className: classItem.name,
-                                          ),
-                                        ),
+                                        isLocked:
+                                            !isAdmin &&
+                                            classesController
+                                                .isClassLocked(classItem.id),
+                                        onTap: () => handleClassTap(classItem),
                                       ),
                                     ),
                                   ),
@@ -182,6 +206,7 @@ class _TugasTab extends GetView<TugasController> {
                                             className: 'Tanpa Kelas',
                                           ),
                                         ),
+                                        isLocked: false,
                                       ),
                                     ),
                                   ),
@@ -200,6 +225,17 @@ class _TugasTab extends GetView<TugasController> {
         ),
       );
     });
+  }
+}
+
+class _UjianTab extends StatelessWidget {
+  final Widget Function()? headerBuilder;
+
+  const _UjianTab({this.headerBuilder});
+
+  @override
+  Widget build(BuildContext context) {
+    return UjianView(headerBuilder: headerBuilder);
   }
 }
 
@@ -302,9 +338,15 @@ class _TabSwitcher extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           _TabButton(
-            label: 'Hasil',
+            label: 'Ujian',
             isActive: currentIndex == 1,
             onTap: () => onChanged(1),
+          ),
+          const SizedBox(width: 6),
+          _TabButton(
+            label: 'Hasil',
+            isActive: currentIndex == 2,
+            onTap: () => onChanged(2),
           ),
         ],
       ),
@@ -585,12 +627,14 @@ class _ClassCard extends StatelessWidget {
   final String subtitle;
   final IconData icon;
   final VoidCallback onTap;
+  final bool isLocked;
 
   const _ClassCard({
     required this.title,
     required this.subtitle,
     required this.icon,
     required this.onTap,
+    required this.isLocked,
   });
 
   @override
@@ -609,7 +653,10 @@ class _ClassCard extends StatelessWidget {
                   color: const Color(0xFFE8ECF5),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: AppColors.navy),
+                child: Icon(
+                  icon,
+                  color: isLocked ? AppColors.textSecondary : AppColors.navy,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -628,7 +675,10 @@ class _ClassCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              Icon(
+                isLocked ? Icons.lock_rounded : Icons.chevron_right_rounded,
+                color: isLocked ? AppColors.textSecondary : null,
+              ),
             ],
           ),
         ),
@@ -1228,12 +1278,17 @@ class _TugasDetailViewState extends State<TugasDetailView> {
       );
       return;
     }
-    final error = await _controller.submitAssignment(
-      assignmentId: widget.assignment.id,
-      deadline: widget.assignment.deadline,
-      content: hasContent ? content : null,
-      filePath: hasFile ? _selectedFilePath : null,
-    );
+    String? error;
+    try {
+      error = await _controller.submitAssignment(
+        assignmentId: widget.assignment.id,
+        deadline: widget.assignment.deadline,
+        content: hasContent ? content : null,
+        filePath: hasFile ? _selectedFilePath : null,
+      );
+    } catch (err) {
+      error = err.toString();
+    }
     if (error != null) {
       _showMessage(
         title: 'Gagal',
@@ -1248,12 +1303,21 @@ class _TugasDetailViewState extends State<TugasDetailView> {
       duration: snackDuration,
     );
     await Future.delayed(snackDuration + const Duration(milliseconds: 100));
-    if (mounted) {
-      if (Get.isSnackbarOpen) {
-        Get.closeCurrentSnackbar();
-      }
-      Get.back(result: true);
+    if (!mounted) {
+      return;
     }
+    if (Get.isSnackbarOpen) {
+      Get.closeCurrentSnackbar();
+    }
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    if (Get.key.currentState != null && Get.key.currentState!.canPop()) {
+      Get.back(result: true);
+      return;
+    }
+    Navigator.of(context, rootNavigator: true).pop(true);
   }
 
   void _showMessage({
@@ -1408,7 +1472,7 @@ class _TugasDetailViewState extends State<TugasDetailView> {
                         width: double.infinity,
                         child: Obx(
                           () => ElevatedButton(
-                            onPressed: _controller.isSubmitting.value
+                            onPressed: _controller.isSubmitting.value || isLate
                                 ? null
                                 : _submit,
                             child: _controller.isSubmitting.value

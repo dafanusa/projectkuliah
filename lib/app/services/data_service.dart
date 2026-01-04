@@ -7,6 +7,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/assignment_item.dart';
 import '../models/assignment_submission.dart';
 import '../models/class_item.dart';
+import '../models/exam_item.dart';
+import '../models/exam_grade_item.dart';
+import '../models/exam_submission_item.dart';
+import '../models/exam_question.dart';
+import '../models/exam_choice.dart';
+import '../models/exam_attempt.dart';
+import '../models/exam_answer.dart';
 import '../models/grade_item.dart';
 import '../models/lecturer_work_item.dart';
 import '../models/material_item.dart';
@@ -16,22 +23,68 @@ class DataService {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<List<ClassItem>> fetchClasses() async {
-    final data = await _client.from('classes').select().order('name');
+    final data =
+        await _client.from('classes').select('id,name,join_code').order('name');
     return (data as List<dynamic>)
         .map((item) => ClassItem.fromMap(item as Map<String, dynamic>))
         .toList();
   }
 
-  Future<void> addClass(String name) async {
-    await _client.from('classes').insert({'name': name});
+  Future<void> addClass(String name, {String? joinCode}) async {
+    await _client.from('classes').insert({
+      'name': name,
+      'join_code': joinCode?.trim().isEmpty == true ? null : joinCode?.trim(),
+    });
   }
 
-  Future<void> updateClass(String id, String name) async {
-    await _client.from('classes').update({'name': name}).eq('id', id);
+  Future<void> updateClass(String id, String name, {String? joinCode}) async {
+    await _client.from('classes').update({
+      'name': name,
+      'join_code': joinCode?.trim().isEmpty == true ? null : joinCode?.trim(),
+    }).eq('id', id);
   }
 
   Future<void> deleteClass(String id) async {
     await _client.from('classes').delete().eq('id', id);
+  }
+
+  Future<List<String>> fetchEnrolledClassIds({
+    required String userId,
+  }) async {
+    final data = await _client
+        .from('class_enrollments')
+        .select('class_id')
+        .eq('user_id', userId);
+    return (data as List<dynamic>)
+        .map((item) => (item as Map<String, dynamic>)['class_id'] as String)
+        .toList();
+  }
+
+  Future<void> joinClassWithCode({
+    required String classId,
+    required String userId,
+    required String code,
+  }) async {
+    final normalizedCode = code.trim();
+    if (normalizedCode.isEmpty) {
+      throw Exception('Kode kelas wajib diisi.');
+    }
+    final result = await _client
+        .from('classes')
+        .select('id')
+        .eq('id', classId)
+        .eq('join_code', normalizedCode)
+        .maybeSingle();
+    if (result == null) {
+      throw Exception('Kode kelas tidak sesuai.');
+    }
+    await _client.from('class_enrollments').upsert(
+      {
+        'class_id': classId,
+        'user_id': userId,
+      },
+      onConflict: 'class_id,user_id',
+    );
   }
 
   Future<List<MaterialItem>> fetchMaterials() async {
@@ -88,16 +141,163 @@ class DataService {
         .toList();
   }
 
+  Future<List<ExamItem>> fetchExams() async {
+    final data = await _client
+        .from('exams')
+        .select(
+            'id,title,description,start_at,end_at,duration_minutes,max_attempts,file_path,class_id,classes(name)')
+        .order('start_at', ascending: true);
+    return (data as List<dynamic>)
+        .map((item) => ExamItem.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> insertAssignment(Map<String, dynamic> payload) async {
     await _client.from('assignments').insert(payload);
+  }
+
+  Future<void> insertExam(Map<String, dynamic> payload) async {
+    await _client.from('exams').insert(payload);
   }
 
   Future<void> updateAssignment(String id, Map<String, dynamic> payload) async {
     await _client.from('assignments').update(payload).eq('id', id);
   }
 
+  Future<void> updateExam(String id, Map<String, dynamic> payload) async {
+    await _client.from('exams').update(payload).eq('id', id);
+  }
+
   Future<void> deleteAssignment(String id) async {
     await _client.from('assignments').delete().eq('id', id);
+  }
+
+  Future<void> deleteExam(String id) async {
+    await _client.from('exams').delete().eq('id', id);
+  }
+
+  Future<List<ExamQuestion>> fetchExamQuestions(String examId) async {
+    final data = await _client
+        .from('exam_questions')
+        .select('id,exam_id,type,prompt,points,order_index')
+        .eq('exam_id', examId)
+        .order('order_index', ascending: true);
+    return (data as List<dynamic>)
+        .map((item) => ExamQuestion.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ExamChoice>> fetchExamChoices(String questionId) async {
+    final data = await _client
+        .from('exam_choices')
+        .select('id,question_id,text,is_correct')
+        .eq('question_id', questionId)
+        .order('created_at', ascending: true);
+    return (data as List<dynamic>)
+        .map((item) => ExamChoice.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ExamQuestion> insertExamQuestion(Map<String, dynamic> payload) async {
+    final data = await _client
+        .from('exam_questions')
+        .insert(payload)
+        .select('id,exam_id,type,prompt,points,order_index')
+        .single();
+    return ExamQuestion.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<void> updateExamQuestion(String id, Map<String, dynamic> payload) async {
+    await _client.from('exam_questions').update(payload).eq('id', id);
+  }
+
+  Future<void> deleteExamQuestion(String id) async {
+    await _client.from('exam_questions').delete().eq('id', id);
+  }
+
+  Future<void> insertExamChoice(Map<String, dynamic> payload) async {
+    await _client.from('exam_choices').insert(payload);
+  }
+
+  Future<void> deleteExamChoicesForQuestion(String questionId) async {
+    await _client.from('exam_choices').delete().eq('question_id', questionId);
+  }
+
+  Future<List<ExamAttempt>> fetchExamAttempts({
+    required String examId,
+    required String userId,
+  }) async {
+    final data = await _client
+        .from('exam_attempts')
+        .select('id,exam_id,user_id,started_at,submitted_at,attempt_number,status,mcq_score')
+        .eq('exam_id', examId)
+        .eq('user_id', userId)
+        .order('attempt_number', ascending: true);
+    return (data as List<dynamic>)
+        .map((item) => ExamAttempt.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ExamAttempt>> fetchExamAttemptsForExam(String examId) async {
+    final data = await _client
+        .from('exam_attempts')
+        .select('id,exam_id,user_id,started_at,submitted_at,attempt_number,status,mcq_score')
+        .eq('exam_id', examId)
+        .order('attempt_number', ascending: true);
+    return (data as List<dynamic>)
+        .map((item) => ExamAttempt.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ExamAttempt> insertExamAttempt(Map<String, dynamic> payload) async {
+    final data = await _client
+        .from('exam_attempts')
+        .insert(payload)
+        .select(
+            'id,exam_id,user_id,started_at,submitted_at,attempt_number,status,mcq_score')
+        .single();
+    return ExamAttempt.fromMap(data as Map<String, dynamic>);
+  }
+
+  Future<void> updateExamAttempt(String id, Map<String, dynamic> payload) async {
+    await _client.from('exam_attempts').update(payload).eq('id', id);
+  }
+
+  Future<List<ExamAnswer>> fetchExamAnswers(String attemptId) async {
+    final data = await _client
+        .from('exam_answers')
+        .select('id,attempt_id,question_id,choice_id,answer_text,is_correct,score')
+        .eq('attempt_id', attemptId);
+    return (data as List<dynamic>)
+        .map((item) => ExamAnswer.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> upsertExamAnswer(Map<String, dynamic> payload) async {
+    await _client
+        .from('exam_answers')
+        .upsert(payload, onConflict: 'attempt_id,question_id');
+  }
+
+  Future<List<ExamAttempt>> fetchMyExamAttemptsForClass({
+    required String userId,
+    required String? classId,
+  }) async {
+    var query = _client
+        .from('exam_attempts')
+        .select('id,exam_id,user_id,started_at,submitted_at,attempt_number,status,mcq_score,exams(class_id)')
+        .eq('user_id', userId);
+    if (classId != null && classId.isNotEmpty) {
+      query = query.eq('exams.class_id', classId);
+    }
+    final data = await query.order('started_at', ascending: false);
+    return (data as List<dynamic>)
+        .map((item) => ExamAttempt.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<void> updateExamAnswer(String id, Map<String, dynamic> payload) async {
+    await _client.from('exam_answers').update(payload).eq('id', id);
   }
 
   Future<List<AssignmentSubmission>> fetchAssignmentSubmissions(
@@ -358,16 +558,109 @@ class DataService {
         .toList();
   }
 
+  Future<List<ExamGradeItem>> fetchExamGrades() async {
+    final data = await _client
+        .from('exam_grades')
+        .select(
+            'id,student_id,student_name,score,class_id,exam_id,classes(name),exams(title)')
+        .order('created_at', ascending: false);
+    return (data as List<dynamic>)
+        .map((item) => ExamGradeItem.fromMap(item as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<ExamSubmissionItem>> fetchExamSubmissions(
+    String examId,
+  ) async {
+    try {
+      final data = await _client
+          .from('exam_submissions')
+          .select(
+              'id,exam_id,user_id,submitted_at,profiles(name,email,nim),exams(title,class_id)')
+          .eq('exam_id', examId)
+          .order('submitted_at', ascending: false);
+      return (data as List<dynamic>)
+          .map(
+            (item) => ExamSubmissionItem.fromMap(item as Map<String, dynamic>),
+          )
+          .toList();
+    } on PostgrestException {
+      final data = await _client
+          .from('exam_submissions')
+          .select('id,exam_id,user_id,submitted_at')
+          .eq('exam_id', examId)
+          .order('submitted_at', ascending: false);
+      return (data as List<dynamic>)
+          .map(
+            (item) => ExamSubmissionItem.fromMap(item as Map<String, dynamic>),
+          )
+          .toList();
+    }
+  }
+
+  Future<void> upsertExamSubmission(Map<String, dynamic> payload) async {
+    await _client
+        .from('exam_submissions')
+        .upsert(payload, onConflict: 'exam_id,user_id');
+  }
+
+  Future<List<ExamSubmissionItem>> fetchMyExamSubmissionsForClass({
+    required String userId,
+    required String? classId,
+  }) async {
+    List<dynamic> data;
+    try {
+      var query = _client
+          .from('exam_submissions')
+          .select(
+              'id,exam_id,user_id,submitted_at,profiles(name,email,nim),exams(title,class_id)')
+          .eq('user_id', userId);
+      if (classId != null && classId.isNotEmpty) {
+        query = query.eq('exams.class_id', classId);
+      }
+      data = await query.order('submitted_at', ascending: false);
+    } on PostgrestException {
+      var query = _client
+          .from('exam_submissions')
+          .select('id,exam_id,user_id,submitted_at')
+          .eq('user_id', userId);
+      data = await query.order('submitted_at', ascending: false);
+    }
+    return (data as List<dynamic>)
+        .map(
+          (item) => ExamSubmissionItem.fromMap(item as Map<String, dynamic>),
+        )
+        .toList();
+  }
+
   Future<void> insertGrade(Map<String, dynamic> payload) async {
     await _client.from('grades').insert(payload);
+  }
+
+  Future<void> insertExamGrade(Map<String, dynamic> payload) async {
+    await _client.from('exam_grades').insert(payload);
+  }
+
+  Future<void> upsertExamGrade(Map<String, dynamic> payload) async {
+    await _client
+        .from('exam_grades')
+        .upsert(payload, onConflict: 'exam_id,student_id');
   }
 
   Future<void> updateGrade(String id, Map<String, dynamic> payload) async {
     await _client.from('grades').update(payload).eq('id', id);
   }
 
+  Future<void> updateExamGrade(String id, Map<String, dynamic> payload) async {
+    await _client.from('exam_grades').update(payload).eq('id', id);
+  }
+
   Future<void> deleteGrade(String id) async {
     await _client.from('grades').delete().eq('id', id);
+  }
+
+  Future<void> deleteExamGrade(String id) async {
+    await _client.from('exam_grades').delete().eq('id', id);
   }
 
   Future<String?> uploadFile({

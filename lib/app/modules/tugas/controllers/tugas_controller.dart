@@ -63,7 +63,7 @@ class TugasController extends GetxController {
     await _dataService.insertAssignment({
       'title': title,
       'instructions': instructions,
-      'deadline': deadline.toIso8601String(),
+      'deadline': deadline.toUtc().toIso8601String(),
       'class_id': classId,
       'file_path': filePath,
     });
@@ -81,7 +81,7 @@ class TugasController extends GetxController {
     await _dataService.updateAssignment(id, {
       'title': title,
       'instructions': instructions,
-      'deadline': deadline.toIso8601String(),
+      'deadline': deadline.toUtc().toIso8601String(),
       'class_id': classId,
       'file_path': filePath,
     });
@@ -136,6 +136,9 @@ class TugasController extends GetxController {
       return 'Sesi login tidak ditemukan.';
     }
     final now = DateTime.now();
+    if (now.isAfter(deadline)) {
+      return 'Deadline sudah lewat.';
+    }
     final status = now.isAfter(deadline) ? 'terlambat' : 'tepat_waktu';
     try {
       isSubmitting.value = true;
