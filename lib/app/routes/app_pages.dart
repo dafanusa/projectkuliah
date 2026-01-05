@@ -6,6 +6,8 @@ import 'package:mvbtummaplikasi/app/modules/auth/login/bindings/login_binding.da
 import 'package:mvbtummaplikasi/app/modules/auth/login/views/login_view.dart';
 import 'package:mvbtummaplikasi/app/modules/auth/register/bindings/register_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/auth/register/views/register_view.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/reset_password/bindings/reset_password_binding.dart';
+import 'package:mvbtummaplikasi/app/modules/auth/reset_password/views/reset_password_view.dart';
 import 'package:mvbtummaplikasi/app/modules/home/bindings/home_binding.dart';
 import 'package:mvbtummaplikasi/app/modules/home/views/home_view.dart';
 import 'package:mvbtummaplikasi/app/modules/materi/bindings/materi_binding.dart';
@@ -43,6 +45,11 @@ class AppPages {
       name: Routes.register,
       page: () => const RegisterView(),
       binding: RegisterBinding(),
+    ),
+    GetPage(
+      name: Routes.resetPassword,
+      page: () => const ResetPasswordView(),
+      binding: ResetPasswordBinding(),
     ),
     GetPage(
       name: Routes.main,

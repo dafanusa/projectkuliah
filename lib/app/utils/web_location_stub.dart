@@ -1,0 +1,3 @@
+String? getWebLocationHrefImpl() {
+  return null;
+}

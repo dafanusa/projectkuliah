@@ -1,0 +1,5 @@
+import 'web_location_stub.dart' if (dart.library.html) 'web_location_web.dart';
+
+String? getWebLocationHref() {
+  return getWebLocationHrefImpl();
+}

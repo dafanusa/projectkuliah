@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../modules/navigation/controllers/navigation_controller.dart';
 import '../routes/app_routes.dart';
+import '../utils/web_location.dart';
 
 class AuthService extends GetxService {
   final SupabaseClient _client = Supabase.instance.client;
@@ -32,9 +34,16 @@ class AuthService extends GetxService {
     }
 
     _subscription = _client.auth.onAuthStateChange.listen((data) async {
+      final event = data.event;
       final session = data.session;
       user.value = session?.user;
       if (suspendRedirect.value) {
+        return;
+      }
+      if (event == AuthChangeEvent.passwordRecovery) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Get.offAllNamed(Routes.resetPassword);
+        });
         return;
       }
       if (session?.user != null) {
@@ -166,6 +175,63 @@ class AuthService extends GetxService {
 
   Future<void> signOut({SignOutScope scope = SignOutScope.local}) async {
     await _client.auth.signOut(scope: scope);
+  }
+
+  Future<void> signInWithGoogle() async {
+    final redirectTo = kIsWeb
+        ? Uri.base.origin
+        : 'com.portalnusa.akademi://login-callback';
+    await _client.auth.signInWithOAuth(
+      OAuthProvider.google,
+      redirectTo: redirectTo,
+    );
+  }
+
+  Future<void> sendPasswordResetEmail(String email) async {
+    final redirectTo = kIsWeb
+        ? '${Uri.base.origin}/reset-password'
+        : 'com.portalnusa.akademi://login-callback';
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: redirectTo,
+    );
+  }
+
+  Future<void> updatePassword(String password) async {
+    await _client.auth.updateUser(UserAttributes(password: password));
+  }
+
+  Future<bool> recoverSessionFromUrl() async {
+    if (!kIsWeb) {
+      return true;
+    }
+    try {
+      final href = getWebLocationHref();
+      final base = href == null ? Uri.base : Uri.parse(href);
+      final queryParams = Map<String, String>.from(base.queryParameters);
+      final fragment = base.fragment;
+      if (fragment.isNotEmpty) {
+        final hashIndex = fragment.lastIndexOf('#');
+        final fragmentValue =
+            hashIndex == -1 ? fragment : fragment.substring(hashIndex + 1);
+        final queryStart = fragmentValue.indexOf('?');
+        final query = queryStart == -1
+            ? fragmentValue
+            : fragmentValue.substring(queryStart + 1);
+        if (query.contains('=')) {
+          queryParams.addAll(Uri.splitQueryString(query));
+        }
+      }
+      if (queryParams.isEmpty) {
+        return false;
+      }
+      final uri = base.replace(queryParameters: queryParams, fragment: '');
+      await _client.auth.getSessionFromUrl(uri);
+      return true;
+    } catch (_) {
+      // Ignore recovery errors; user can retry or request a new link.
+      return false;
+    }
   }
 
   void signOutAndRedirect() {

@@ -4,10 +4,10 @@ import 'package:get/get.dart';
 import '../../../../theme/app_colors.dart';
 import '../../../../widgets/reveal.dart';
 import '../../../../widgets/responsive_center.dart';
-import '../controllers/register_controller.dart';
+import '../controllers/reset_password_controller.dart';
 
-class RegisterView extends GetView<RegisterController> {
-  const RegisterView({super.key});
+class ResetPasswordView extends GetView<ResetPasswordController> {
+  const ResetPasswordView({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -30,28 +30,14 @@ class RegisterView extends GetView<RegisterController> {
                           const Reveal(
                             delayMs: 80,
                             child: _HeroBanner(
-                              title: 'Buat Akun Baru',
-                              subtitle: 'Daftarkan diri untuk mengelola kelas.',
+                              title: 'Reset Password',
+                              subtitle: 'Buat password baru untuk akun kamu.',
                             ),
                           ),
                           const SizedBox(height: 20),
                           Reveal(
                             delayMs: 140,
                             child: _FormCard(controller: controller),
-                          ),
-                          const SizedBox(height: 16),
-                          Reveal(
-                            delayMs: 220,
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Text('Sudah punya akun?'),
-                                TextButton(
-                                  onPressed: Get.back,
-                                  child: const Text('Masuk'),
-                                ),
-                              ],
-                            ),
                           ),
                           const SizedBox(height: 24),
                         ],
@@ -82,7 +68,7 @@ class _AuthBackground extends StatelessWidget {
         ),
       ),
       child: Stack(
-        children: [
+        children: const [
           Positioned(
             top: -80,
             right: -50,
@@ -160,7 +146,7 @@ class _HeroBanner extends StatelessWidget {
                   color: Colors.white.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: const Icon(Icons.school_rounded, color: Colors.white),
+                child: const Icon(Icons.lock_reset_rounded, color: Colors.white),
               ),
               const SizedBox(width: 10),
               const Text(
@@ -187,27 +173,6 @@ class _HeroBanner extends StatelessWidget {
             subtitle,
             style: const TextStyle(color: Color(0xFFD6E0F5)),
           ),
-          const SizedBox(height: 16),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final isWide = constraints.maxWidth >= 600;
-              if (isWide) {
-                return const SizedBox.shrink();
-              }
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: SizedBox(
-                  height: 120,
-                  width: double.infinity,
-                  child: Image.asset(
-                    'assets/register.jpg',
-                    fit: BoxFit.cover,
-                    alignment: Alignment.center,
-                  ),
-                ),
-              );
-            },
-          ),
         ],
       ),
     );
@@ -215,7 +180,7 @@ class _HeroBanner extends StatelessWidget {
 }
 
 class _FormCard extends StatelessWidget {
-  final RegisterController controller;
+  final ResetPasswordController controller;
 
   const _FormCard({required this.controller});
 
@@ -230,48 +195,41 @@ class _FormCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'Registrasi',
+                'Password Baru',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: controller.nameController,
-              decoration: const InputDecoration(
-                labelText: 'Nama Lengkap',
-                prefixIcon: Icon(Icons.person_outline_rounded),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller.nimController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'NIM',
-                prefixIcon: Icon(Icons.badge_outlined),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: controller.emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.mail_outline_rounded),
-              ),
-            ),
-            const SizedBox(height: 16),
             Obx(
               () => TextField(
                 controller: controller.passwordController,
                 obscureText: controller.isPasswordHidden.value,
                 decoration: InputDecoration(
-                  labelText: 'Password',
+                  labelText: 'Password baru',
                   prefixIcon: const Icon(Icons.lock_outline_rounded),
                   suffixIcon: IconButton(
                     onPressed: controller.togglePassword,
                     icon: Icon(
                       controller.isPasswordHidden.value
+                          ? Icons.visibility_off_rounded
+                          : Icons.visibility_rounded,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Obx(
+              () => TextField(
+                controller: controller.confirmController,
+                obscureText: controller.isConfirmHidden.value,
+                decoration: InputDecoration(
+                  labelText: 'Konfirmasi password',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    onPressed: controller.toggleConfirm,
+                    icon: Icon(
+                      controller.isConfirmHidden.value
                           ? Icons.visibility_off_rounded
                           : Icons.visibility_rounded,
                     ),
@@ -286,7 +244,7 @@ class _FormCard extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: controller.isLoading.value
                       ? null
-                      : controller.register,
+                      : controller.submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.navy,
                     foregroundColor: Colors.white,
@@ -297,18 +255,8 @@ class _FormCard extends StatelessWidget {
                           width: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Daftar'),
+                      : const Text('Simpan Password'),
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Obx(
-              () => OutlinedButton.icon(
-                onPressed: controller.isLoading.value
-                    ? null
-                    : controller.registerWithGoogle,
-                icon: const Icon(Icons.g_mobiledata_rounded),
-                label: const Text('Daftar dengan Google'),
               ),
             ),
           ],

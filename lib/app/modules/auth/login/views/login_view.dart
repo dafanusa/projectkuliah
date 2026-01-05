@@ -267,12 +267,7 @@ class _FormCard extends StatelessWidget {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton(
-                onPressed: () => Get.snackbar(
-                  'Lupa Password',
-                  'Silakan hubungi admin untuk reset password.',
-                  backgroundColor: AppColors.navy,
-                  colorText: Colors.white,
-                ),
+                onPressed: () => _showResetDialog(context, controller),
                 child: const Text('Lupa password?'),
               ),
             ),
@@ -297,19 +292,54 @@ class _FormCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => Get.snackbar(
-                'Google Login',
-                'Fitur login Google belum diaktifkan.',
-                backgroundColor: AppColors.navy,
-                colorText: Colors.white,
+            Obx(
+              () => OutlinedButton.icon(
+                onPressed:
+                    controller.isLoading.value ? null : controller.loginWithGoogle,
+                icon: const Icon(Icons.g_mobiledata_rounded),
+                label: const Text('Masuk dengan Google'),
               ),
-              icon: const Icon(Icons.g_mobiledata_rounded),
-              label: const Text('Masuk dengan Google'),
             ),
           ],
         ),
       ),
     );
   }
+}
+
+void _showResetDialog(BuildContext context, LoginController controller) {
+  final emailController = TextEditingController(
+    text: controller.emailController.text.trim(),
+  );
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Reset Password'),
+      content: TextField(
+        controller: emailController,
+        keyboardType: TextInputType.emailAddress,
+        decoration: const InputDecoration(
+          labelText: 'Email',
+          prefixIcon: Icon(Icons.mail_outline_rounded),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Batal'),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            Navigator.pop(context);
+            controller.sendPasswordReset(emailController.text);
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.navy,
+            foregroundColor: Colors.white,
+          ),
+          child: const Text('Kirim'),
+        ),
+      ],
+    ),
+  );
 }

@@ -69,6 +69,64 @@ class LoginController extends GetxController {
     isPasswordHidden.value = !isPasswordHidden.value;
   }
 
+  Future<void> sendPasswordReset(String email) async {
+    final trimmed = email.trim();
+    if (trimmed.isEmpty) {
+      Get.snackbar(
+        'Gagal',
+        'Email wajib diisi.',
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
+      return;
+    }
+    try {
+      isLoading.value = true;
+      await _authService.sendPasswordResetEmail(trimmed);
+      Get.snackbar(
+        'Berhasil',
+        'Link reset password sudah dikirim ke email.',
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
+    } catch (error) {
+      Get.snackbar(
+        'Gagal',
+        error.toString(),
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> loginWithGoogle() async {
+    if (isLoading.value) {
+      return;
+    }
+    try {
+      isLoading.value = true;
+      _authService.suspendRedirect.value = true;
+      final currentUser = _authService.user.value;
+      if (currentUser != null) {
+        await _authService.signOut(scope: SignOutScope.local);
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      await _authService.signInWithGoogle();
+    } catch (error) {
+      Get.snackbar(
+        'Login gagal',
+        error.toString(),
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
+    } finally {
+      _authService.suspendRedirect.value = false;
+      isLoading.value = false;
+    }
+  }
+
   @override
   void onClose() {
     emailController.dispose();

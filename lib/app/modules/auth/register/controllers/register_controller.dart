@@ -71,6 +71,32 @@ class RegisterController extends GetxController {
     isPasswordHidden.value = !isPasswordHidden.value;
   }
 
+  Future<void> registerWithGoogle() async {
+    if (isLoading.value) {
+      return;
+    }
+    try {
+      isLoading.value = true;
+      _authService.suspendRedirect.value = true;
+      final currentUser = _authService.user.value;
+      if (currentUser != null) {
+        await _authService.signOut();
+        await Future.delayed(const Duration(milliseconds: 200));
+      }
+      await _authService.signInWithGoogle();
+    } catch (error) {
+      Get.snackbar(
+        'Registrasi gagal',
+        error.toString(),
+        backgroundColor: AppColors.navy,
+        colorText: Colors.white,
+      );
+    } finally {
+      _authService.suspendRedirect.value = false;
+      isLoading.value = false;
+    }
+  }
+
   @override
   void onClose() {
     nameController.dispose();

@@ -12,10 +12,14 @@ import 'app/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  final authFlowType = kIsWeb ? AuthFlowType.implicit : AuthFlowType.pkce;
   await Supabase.initialize(
     url: 'https://gfpkegpnozcoaxljnuch.supabase.co',
     anonKey:
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdmcGtlZ3Bub3pjb2F4bGpudWNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjcyNzAyNTgsImV4cCI6MjA4Mjg0NjI1OH0.jYoQar-zpfuhPsl_ln6KT_IOC57mBk5QCBnDmJTrOmw',
+    authOptions: FlutterAuthClientOptions(
+      authFlowType: authFlowType,
+    ),
   );
 
   Get.put<AuthService>(AuthService(), permanent: true);
@@ -30,7 +34,9 @@ class ProjectKuliahApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authService = Get.find<AuthService>();
-    final initialRoute = Routes.splash;
+    final initialRoute = kIsWeb && Uri.base.path == '/reset-password'
+        ? Routes.resetPassword
+        : Routes.splash;
 
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
