@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../modules/navigation/controllers/navigation_controller.dart';
@@ -19,6 +20,10 @@ class AuthService extends GetxService {
   final RxBool isProfileLoading = false.obs;
   final RxBool suspendRedirect = false.obs;
   StreamSubscription<AuthState>? _subscription;
+  static const _cacheRoleKey = 'cached_profile_role_';
+  static const _cacheNameKey = 'cached_profile_name_';
+  static const _cacheNimKey = 'cached_profile_nim_';
+  static const _cacheAvatarKey = 'cached_profile_avatar_';
 
   bool get isLoggedIn => user.value != null;
 
@@ -94,6 +99,14 @@ class AuthService extends GetxService {
           .timeout(const Duration(seconds: 3), onTimeout: () => null);
 
       if (response == null) {
+        final cached = await _readCachedProfile(currentUser.id);
+        if (cached != null) {
+          name.value = cached.name.isNotEmpty ? cached.name : metaName;
+          role.value = cached.role.isNotEmpty ? cached.role : metaRole;
+          nim.value = cached.nim.isNotEmpty ? cached.nim : metaNim;
+          avatarUrl.value = cached.avatarUrl;
+          return;
+        }
         if (metaName.isNotEmpty || metaNim.isNotEmpty) {
           await _client.from('profiles').upsert({
             'id': currentUser.id,
@@ -128,7 +141,22 @@ class AuthService extends GetxService {
       role.value = profileRole.isEmpty ? metaRole : profileRole;
       nim.value = profileNim.isEmpty ? metaNim : profileNim;
       avatarUrl.value = profileAvatar;
+      await _writeCachedProfile(
+        currentUser.id,
+        name: name.value,
+        role: role.value,
+        nim: nim.value,
+        avatarUrl: avatarUrl.value,
+      );
     } catch (_) {
+      final cached = await _readCachedProfile(currentUser.id);
+      if (cached != null) {
+        name.value = cached.name.isNotEmpty ? cached.name : metaName;
+        role.value = cached.role.isNotEmpty ? cached.role : metaRole;
+        nim.value = cached.nim.isNotEmpty ? cached.nim : metaNim;
+        avatarUrl.value = cached.avatarUrl;
+        return;
+      }
       if (!hadRole) {
         name.value = metaName;
         role.value = metaRole;
@@ -239,9 +267,54 @@ class AuthService extends GetxService {
     _client.auth.signOut(scope: SignOutScope.local);
   }
 
+  Future<_CachedProfile?> _readCachedProfile(String userId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final role = prefs.getString('$_cacheRoleKey$userId');
+    final name = prefs.getString('$_cacheNameKey$userId');
+    final nim = prefs.getString('$_cacheNimKey$userId');
+    final avatarUrl = prefs.getString('$_cacheAvatarKey$userId') ?? '';
+    if (role == null && name == null && nim == null && avatarUrl.isEmpty) {
+      return null;
+    }
+    return _CachedProfile(
+      role: role ?? '',
+      name: name ?? '',
+      nim: nim ?? '',
+      avatarUrl: avatarUrl,
+    );
+  }
+
+  Future<void> _writeCachedProfile(
+    String userId, {
+    required String role,
+    required String name,
+    required String nim,
+    required String avatarUrl,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('$_cacheRoleKey$userId', role);
+    await prefs.setString('$_cacheNameKey$userId', name);
+    await prefs.setString('$_cacheNimKey$userId', nim);
+    await prefs.setString('$_cacheAvatarKey$userId', avatarUrl);
+  }
+
   @override
   void onClose() {
     _subscription?.cancel();
     super.onClose();
   }
+}
+
+class _CachedProfile {
+  final String role;
+  final String name;
+  final String nim;
+  final String avatarUrl;
+
+  const _CachedProfile({
+    required this.role,
+    required this.name,
+    required this.nim,
+    required this.avatarUrl,
+  });
 }
